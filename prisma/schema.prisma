@@ -15,9 +15,12 @@ enum Priority {
 }
 
 enum TaskStatus {
-  TODO
-  DOING
-  DONE
+  PENDING
+  IN_PROGRESS
+  IN_REVIEW
+  TESTING
+  COMPLETED
+  BLOCKED
 }
 
 model Task {
@@ -26,7 +29,7 @@ model Task {
   description  String?
   priority     Priority      @default(MEDIUM)
   dueDate      DateTime?
-  status       TaskStatus    @default(TODO)
+  status       TaskStatus    @default(PENDING)
   tags         String        @default("")
   requester    String?
   internalNotes String?

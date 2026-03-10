@@ -7,10 +7,15 @@ import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isBefore, 
 import { Task, TaskStatus, Priority } from '@/lib/types';
 import { Moon, Sun, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 
+const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'BLOCKED'];
+
 const statusLabels: Record<TaskStatus, string> = {
-  TODO: 'Pendientes',
-  DOING: 'Realizando',
-  DONE: 'Hechas',
+  PENDING: '📋 Pendiente',
+  IN_PROGRESS: '🛠 En desarrollo',
+  IN_REVIEW: '🔍 En revisión',
+  TESTING: '🧪 Testing',
+  COMPLETED: '✅ Completado',
+  BLOCKED: '⛔ Bloqueado',
 };
 
 const priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -67,10 +72,10 @@ export default function Home() {
   const metrics = useMemo(() => {
     const now = new Date();
     return {
-      todo: tasks.filter((t) => t.status === 'TODO').length,
-      doing: tasks.filter((t) => t.status === 'DOING').length,
-      done: tasks.filter((t) => t.status === 'DONE').length,
-      overdue: tasks.filter((t) => t.dueDate && isBefore(parseISO(t.dueDate), now) && t.status !== 'DONE').length,
+      todo: tasks.filter((t) => t.status === 'PENDING').length,
+      doing: tasks.filter((t) => ['IN_PROGRESS', 'IN_REVIEW', 'TESTING'].includes(t.status)).length,
+      done: tasks.filter((t) => t.status === 'COMPLETED').length,
+      overdue: tasks.filter((t) => t.dueDate && isBefore(parseISO(t.dueDate), now) && t.status !== 'COMPLETED').length,
     };
   }, [tasks]);
 
@@ -80,7 +85,7 @@ export default function Home() {
     weekAgo.setDate(now.getDate() - 7);
 
     const created = tasks.filter((t) => new Date(t.createdAt) >= weekAgo).length;
-    const completed = tasks.filter((t) => t.status === 'DONE' && new Date(t.updatedAt) >= weekAgo).length;
+    const completed = tasks.filter((t) => t.status === 'COMPLETED' && new Date(t.updatedAt) >= weekAgo).length;
     const completionRate = created ? Math.round((completed / created) * 100) : completed ? 100 : 0;
 
     return { created, completed, completionRate };
@@ -91,7 +96,7 @@ export default function Home() {
     const inSevenDays = new Date();
     inSevenDays.setDate(now.getDate() + 7);
     return tasks
-      .filter((t) => t.dueDate && t.status !== 'DONE')
+      .filter((t) => t.dueDate && t.status !== 'COMPLETED')
       .filter((t) => {
         const d = parseISO(t.dueDate as string);
         return d >= now && d <= inSevenDays;
@@ -178,9 +183,7 @@ export default function Home() {
             <label className="input-wrap md:col-span-2"><Search size={16} /><input placeholder="Buscar tarea..." value={query} onChange={(e) => setQuery(e.target.value)} /></label>
             <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'ALL' | TaskStatus)}>
               <option value="ALL">Todos los estados</option>
-              <option value="TODO">Pendientes</option>
-              <option value="DOING">Realizando</option>
-              <option value="DONE">Hechas</option>
+              {statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
             </select>
             <select className="input" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as 'ALL' | Priority)}>
               <option value="ALL">Todas prioridades</option>
@@ -232,12 +235,12 @@ export default function Home() {
         </section>
 
         {loading ? <p>Cargando tareas...</p> : view === 'KANBAN' ? (
-          <div className="grid md:grid-cols-3 gap-4">
-            {(['TODO', 'DOING', 'DONE'] as TaskStatus[]).map((status) => (
-              <div key={status} className={clsx('kanban-col', `kanban-${status.toLowerCase()}`)} onDragOver={(e) => e.preventDefault()} onDrop={() => dropOn(status)}>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {statuses.map((status) => (
+              <div key={status} className="kanban-col" onDragOver={(e) => e.preventDefault()} onDrop={() => dropOn(status)}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className={clsx('kanban-title', `kanban-title-${status.toLowerCase()}`)}>{statusLabels[status]}</h3>
-                  <span className={clsx('kanban-count', `kanban-count-${status.toLowerCase()}`)}>{byStatus(status).length}</span>
+                  <h3 className="kanban-title">{statusLabels[status]}</h3>
+                  <span className="kanban-count">{byStatus(status).length}</span>
                 </div>
                 <div className="space-y-3 min-h-24">
                   {byStatus(status).map((task) => (
@@ -287,9 +290,9 @@ function Metric({ label, value, danger = false, suffix = '' }: { label: string; 
 }
 
 function TaskCard({ task, onEdit, onDelete, onDragStart }: { task: Task; onEdit: () => void; onDelete: () => void; onDragStart: () => void }) {
-  const overdue = task.dueDate && isBefore(parseISO(task.dueDate), new Date()) && task.status !== 'DONE';
+  const overdue = task.dueDate && isBefore(parseISO(task.dueDate), new Date()) && task.status !== 'COMPLETED';
   return (
-    <div id={task.id} draggable onDragStart={onDragStart} className={clsx('task-card cursor-grab active:cursor-grabbing', `task-${task.status.toLowerCase()}`, overdue && 'ring-1 ring-red-400')}>
+    <div id={task.id} draggable onDragStart={onDragStart} className={clsx('task-card cursor-grab active:cursor-grabbing', overdue && 'ring-1 ring-red-400')}>
       <div className="flex justify-between items-start gap-2">
         <h4 className="font-semibold leading-tight tracking-tight">{task.title}</h4>
         <span className={clsx('badge', `p-${task.priority.toLowerCase()}`)}>{priorityLabel[task.priority]}</span>
@@ -316,9 +319,7 @@ function TaskRow({ task, onEdit, onDelete, onMove }: { task: Task; onEdit: () =>
       <div className="text-sm">{task.dueDate ? format(parseISO(task.dueDate), 'dd/MM/yyyy') : '-'}</div>
       <div>
         <select className="input" value={task.status} onChange={(e) => onMove(task.id, e.target.value as TaskStatus)}>
-          <option value="TODO">Pendiente</option>
-          <option value="DOING">Realizando</option>
-          <option value="DONE">Hecha</option>
+          {statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
         </select>
       </div>
       <div className="flex gap-2 justify-end"><button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
@@ -370,7 +371,7 @@ function MonthlyCalendar({
             <p className={clsx('text-xs mb-1', isToday(day) && 'font-bold text-indigo-500')}>{format(day, 'd')}</p>
             <div className="space-y-1">
               {items.slice(0, 3).map((t) => (
-                <div key={t.id} className={clsx('text-[11px] px-1.5 py-1 rounded-lg truncate', t.status === 'TODO' && 'bg-amber-100 text-amber-800', t.status === 'DOING' && 'bg-blue-100 text-blue-800', t.status === 'DONE' && 'bg-emerald-100 text-emerald-800')}>
+                <div key={t.id} className={clsx('text-[11px] px-1.5 py-1 rounded-lg truncate', t.status === 'PENDING' && 'bg-zinc-100 text-zinc-700', t.status === 'IN_PROGRESS' && 'bg-zinc-100 text-zinc-700', t.status === 'IN_REVIEW' && 'bg-zinc-100 text-zinc-700', t.status === 'TESTING' && 'bg-zinc-100 text-zinc-700', t.status === 'COMPLETED' && 'bg-zinc-100 text-zinc-700', t.status === 'BLOCKED' && 'bg-zinc-100 text-zinc-700')}>
                   {t.title}
                 </div>
               ))}
@@ -389,7 +390,7 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
     description: task?.description || '',
     priority: task?.priority || 'MEDIUM',
     dueDate: task?.dueDate?.slice(0, 10) || '',
-    status: task?.status || 'TODO',
+    status: task?.status || 'PENDING',
     tags: task?.tags || '',
     requester: task?.requester || '',
     internalNotes: task?.internalNotes || '',
@@ -416,7 +417,7 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
         <div className="grid md:grid-cols-3 gap-2">
           <select className="input" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>{priorities.map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</select>
           <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
-          <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}><option value="TODO">Pendiente</option><option value="DOING">Realizando</option><option value="DONE">Hecha</option></select>
+          <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>{statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}</select>
         </div>
         <input className="input" placeholder="Etiquetas separadas por coma" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
         <input className="input" placeholder="Persona o área solicitante" value={form.requester} onChange={(e) => setForm({ ...form, requester: e.target.value })} />

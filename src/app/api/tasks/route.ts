@@ -21,13 +21,13 @@ export async function POST(request: Request) {
       description: body.description || null,
       priority: (body.priority as Priority) || Priority.MEDIUM,
       dueDate: body.dueDate ? new Date(body.dueDate) : null,
-      status: (body.status as TaskStatus) || TaskStatus.TODO,
+      status: (body.status as TaskStatus) || TaskStatus.PENDING,
       tags: Array.isArray(body.tags) ? body.tags.join(',') : body.tags || '',
       requester: body.requester || null,
       internalNotes: body.internalNotes || null,
       history: {
         create: {
-          toStatus: (body.status as TaskStatus) || TaskStatus.TODO,
+          toStatus: (body.status as TaskStatus) || TaskStatus.PENDING,
           note: 'Tarea creada',
         },
       },
