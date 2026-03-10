@@ -53,6 +53,7 @@ export default function Home() {
     if (saved === 'dark') {
       setIsDark(true);
       document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
     }
   }, []);
 
@@ -60,6 +61,7 @@ export default function Home() {
     const next = !isDark;
     setIsDark(next);
     document.documentElement.classList.toggle('dark', next);
+    document.body.classList.toggle('dark', next);
     localStorage.setItem('taskflow_theme', next ? 'dark' : 'light');
   }
 
