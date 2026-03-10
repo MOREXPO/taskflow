@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import clsx from 'clsx';
-import { format, isBefore, isToday, parseISO } from 'date-fns';
+import { eachDayOfInterval, endOfMonth, endOfWeek, format, isBefore, isSameMonth, isToday, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { Task, TaskStatus, Priority } from '@/lib/types';
 import { Moon, Sun, Search, Plus, Trash2, Pencil } from 'lucide-react';
 
@@ -30,7 +30,7 @@ export default function Home() {
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | Priority>('ALL');
   const [tagFilter, setTagFilter] = useState('');
   const [dueFilter, setDueFilter] = useState('');
-  const [view, setView] = useState<'KANBAN' | 'LIST'>('KANBAN');
+  const [view, setView] = useState<'KANBAN' | 'LIST' | 'CALENDAR'>('KANBAN');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate'>('priority');
   const [isDark, setIsDark] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -195,6 +195,7 @@ export default function Home() {
             <div className="segmented">
               <button className={clsx(view === 'KANBAN' && 'active')} onClick={() => setView('KANBAN')}>Kanban</button>
               <button className={clsx(view === 'LIST' && 'active')} onClick={() => setView('LIST')}>Lista</button>
+              <button className={clsx(view === 'CALENDAR' && 'active')} onClick={() => setView('CALENDAR')}>Calendario</button>
             </div>
           </div>
         </section>
@@ -231,8 +232,8 @@ export default function Home() {
         {loading ? <p>Cargando tareas...</p> : view === 'KANBAN' ? (
           <div className="grid md:grid-cols-3 gap-4">
             {(['TODO', 'DOING', 'DONE'] as TaskStatus[]).map((status) => (
-              <div key={status} className="kanban-col" onDragOver={(e) => e.preventDefault()} onDrop={() => dropOn(status)}>
-                <h3>{statusLabels[status]}</h3>
+              <div key={status} className={clsx('kanban-col', `kanban-${status.toLowerCase()}`)} onDragOver={(e) => e.preventDefault()} onDrop={() => dropOn(status)}>
+                <h3 className={clsx('kanban-title', `kanban-title-${status.toLowerCase()}`)}>{statusLabels[status]}</h3>
                 <div className="space-y-3 min-h-24">
                   {byStatus(status).map((task) => (
                     <TaskCard key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onDragStart={() => setDragId(task.id)} />
@@ -241,10 +242,12 @@ export default function Home() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : view === 'LIST' ? (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
             {filtered.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onMove={moveTask} />)}
           </div>
+        ) : (
+          <MonthlyCalendar tasks={filtered} />
         )}
       </div>
 
@@ -308,6 +311,46 @@ function TaskRow({ task, onEdit, onDelete, onMove }: { task: Task; onEdit: () =>
         </select>
       </div>
       <div className="flex gap-2 justify-end"><button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
+    </div>
+  );
+}
+
+function MonthlyCalendar({ tasks }: { tasks: Task[] }) {
+  const today = new Date();
+  const monthStart = startOfMonth(today);
+  const monthEnd = endOfMonth(today);
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
+
+  const tasksByDay = days.map((day) => {
+    const items = tasks.filter((t) => t.dueDate && format(parseISO(t.dueDate), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'));
+    return { day, items };
+  });
+
+  return (
+    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold">Calendario mensual · {format(today, 'MMMM yyyy')}</h3>
+      </div>
+      <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-zinc-500 mb-2">
+        {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => <div key={d}>{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {tasksByDay.map(({ day, items }) => (
+          <div key={day.toISOString()} className={clsx('min-h-28 rounded-xl border p-2', isSameMonth(day, today) ? 'border-zinc-200 dark:border-zinc-800' : 'border-zinc-100 dark:border-zinc-900 opacity-60')}>
+            <p className={clsx('text-xs mb-1', isToday(day) && 'font-bold text-indigo-500')}>{format(day, 'd')}</p>
+            <div className="space-y-1">
+              {items.slice(0, 3).map((t) => (
+                <div key={t.id} className={clsx('text-[11px] px-1.5 py-1 rounded-lg truncate', t.status === 'TODO' && 'bg-amber-100 text-amber-800', t.status === 'DOING' && 'bg-blue-100 text-blue-800', t.status === 'DONE' && 'bg-emerald-100 text-emerald-800')}>
+                  {t.title}
+                </div>
+              ))}
+              {items.length > 3 && <div className="text-[11px] text-zinc-500">+{items.length - 3} más</div>}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -45,8 +45,20 @@ body {
 }
 
 .kanban-col h3 {
-  @apply text-sm font-semibold text-zinc-500 mb-3;
+  @apply text-sm font-semibold mb-3;
 }
+
+.kanban-title {
+  @apply inline-flex items-center px-2.5 py-1 rounded-full;
+}
+
+.kanban-todo { @apply bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800; }
+.kanban-doing { @apply bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800; }
+.kanban-done { @apply bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800; }
+
+.kanban-title-todo { @apply bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300; }
+.kanban-title-doing { @apply bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300; }
+.kanban-title-done { @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300; }
 
 .task-card {
   @apply rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 shadow-sm hover:shadow-md transition;
