@@ -72,6 +72,32 @@ export default function Home() {
     };
   }, [tasks]);
 
+  const weeklyStats = useMemo(() => {
+    const now = new Date();
+    const weekAgo = new Date();
+    weekAgo.setDate(now.getDate() - 7);
+
+    const created = tasks.filter((t) => new Date(t.createdAt) >= weekAgo).length;
+    const completed = tasks.filter((t) => t.status === 'DONE' && new Date(t.updatedAt) >= weekAgo).length;
+    const completionRate = created ? Math.round((completed / created) * 100) : completed ? 100 : 0;
+
+    return { created, completed, completionRate };
+  }, [tasks]);
+
+  const upcomingDeadlines = useMemo(() => {
+    const now = new Date();
+    const inSevenDays = new Date();
+    inSevenDays.setDate(now.getDate() + 7);
+    return tasks
+      .filter((t) => t.dueDate && t.status !== 'DONE')
+      .filter((t) => {
+        const d = parseISO(t.dueDate as string);
+        return d >= now && d <= inSevenDays;
+      })
+      .sort((a, b) => +new Date(a.dueDate as string) - +new Date(b.dueDate as string))
+      .slice(0, 5);
+  }, [tasks]);
+
   const filtered = useMemo(() => {
     let result = [...tasks];
     if (query) {
@@ -173,6 +199,35 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="grid lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+            <p className="text-sm text-zinc-500 mb-3">Productividad (últimos 7 días)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <Metric label="Creadas" value={weeklyStats.created} />
+              <Metric label="Completadas" value={weeklyStats.completed} />
+              <Metric label="Rendimiento" value={weeklyStats.completionRate} suffix="%" />
+            </div>
+            <div className="mt-4 h-3 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-700" style={{ width: `${Math.max(5, weeklyStats.completionRate)}%` }} />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+            <p className="text-sm text-zinc-500 mb-3">Próximas fechas (7 días)</p>
+            <div className="space-y-2">
+              {upcomingDeadlines.length === 0 ? (
+                <p className="text-sm text-zinc-500">Sin vencimientos próximos 🎉</p>
+              ) : (
+                upcomingDeadlines.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-2">
+                    <p className="text-sm font-medium truncate">{t.title}</p>
+                    <p className="text-xs text-zinc-500">{format(parseISO(t.dueDate as string), 'dd/MM/yyyy')}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
         {loading ? <p>Cargando tareas...</p> : view === 'KANBAN' ? (
           <div className="grid md:grid-cols-3 gap-4">
             {(['TODO', 'DOING', 'DONE'] as TaskStatus[]).map((status) => (
@@ -208,11 +263,11 @@ export default function Home() {
   );
 }
 
-function Metric({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
+function Metric({ label, value, danger = false, suffix = '' }: { label: string; value: number; danger?: boolean; suffix?: string }) {
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 bg-zinc-50/80 dark:bg-zinc-950/60">
       <p className="text-xs text-zinc-500">{label}</p>
-      <p className={clsx('text-2xl font-bold', danger && 'text-red-500')}>{value}</p>
+      <p className={clsx('text-2xl font-bold', danger && 'text-red-500')}>{value}{suffix}</p>
     </div>
   );
 }
