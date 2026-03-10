@@ -1,6 +1,6 @@
 # TaskFlow
 
-Aplicación web moderna para gestión de tareas con Kanban + lista, autenticación simple y persistencia real.
+Aplicación web moderna para gestión de tareas con Kanban + lista, autenticación multiusuario y persistencia real.
 
 ## Stack
 - Next.js 16 + React + TypeScript
@@ -10,8 +10,8 @@ Aplicación web moderna para gestión de tareas con Kanban + lista, autenticaci�
 
 ## Funcionalidades
 - Crear, editar y eliminar tareas
-- Campos completos: título, descripción, prioridad, fecha límite, estado, etiquetas, solicitante, notas
-- Tablero Kanban (Pendientes / Realizando / Hechas)
+- Campos completos: título, descripción, prioridad, fecha límite, estado, etiquetas, notas
+- Tablero Kanban con estados de flujo ampliados
 - Drag & drop entre estados
 - Vista lista adicional
 - Buscador + filtros (estado, prioridad, etiqueta, fecha límite)
@@ -20,7 +20,8 @@ Aplicación web moderna para gestión de tareas con Kanban + lista, autenticaci�
 - Métricas superiores (pendientes, en curso, completadas, vencidas)
 - Modo claro/oscuro
 - Comentarios y pequeño historial de cambios de estado
-- Autenticación simple por contraseña
+- Autenticación multiusuario (ADMIN/USER)
+- Panel de administración de usuarios (crear/editar/eliminar)
 
 ## Ejecutar en local
 ```bash
@@ -34,8 +35,11 @@ npm run dev
 
 Abre: http://localhost:3000
 
-## Login
-- Contraseña definida en `.env` (`APP_PASSWORD`)
+## Login inicial
+- Admin seed por defecto:
+  - Email: `iagomoreda1910@gmail.com`
+  - Password: `Jisei0no0ku`
+- Panel admin: `/admin/users`
 
 ## Estructura principal
 - `src/app/page.tsx` → dashboard principal (kanban/lista)

@@ -3,22 +3,15 @@ import type { NextRequest } from 'next/server';
 
 const AUTH_COOKIE = 'taskflow_auth';
 
-function token() {
-  return process.env.SESSION_SECRET || 'change-me';
-}
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
+  if (pathname.startsWith('/login') || pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
   const session = request.cookies.get(AUTH_COOKIE)?.value;
-  if (session !== token()) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

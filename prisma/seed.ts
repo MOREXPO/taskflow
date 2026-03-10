@@ -1,4 +1,5 @@
 import { PrismaClient, Priority, TaskStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -6,6 +7,16 @@ async function main() {
   await prisma.taskHistory.deleteMany();
   await prisma.taskComment.deleteMany();
   await prisma.task.deleteMany();
+
+  const adminEmail = 'iagomoreda1910@gmail.com';
+  const adminPassword = 'Jisei0no0ku';
+  const adminHash = await bcrypt.hash(adminPassword, 10);
+
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { passwordHash: adminHash, role: 'ADMIN' },
+    create: { email: adminEmail, passwordHash: adminHash, role: 'ADMIN' },
+  });
 
   const tasks = await prisma.task.createMany({
     data: [

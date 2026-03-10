@@ -41,6 +41,7 @@ export default function Home() {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [editing, setEditing] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
 
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -68,6 +69,12 @@ export default function Home() {
 
   useEffect(() => {
     loadTasks();
+    fetch('/api/auth/me').then(async (r) => {
+      if (r.ok) {
+        const d = await r.json();
+        setMe(d.user);
+      }
+    });
     const saved = localStorage.getItem('taskflow_theme');
     const useDark = saved ? saved === 'dark' : true;
     setIsDark(useDark);
@@ -179,6 +186,7 @@ export default function Home() {
               <p className="text-sm text-zinc-500">Gestor de tareas profesional para tu trabajo diario</p>
             </div>
             <div className="flex items-center gap-2">
+              {me?.role === 'ADMIN' && <a href="/admin/users" className="btn-secondary">Usuarios</a>}
               <button onClick={toggleTheme} className="btn-secondary">{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
               <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>
             </div>

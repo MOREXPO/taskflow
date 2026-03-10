@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Priority, TaskStatus } from '@prisma/client';
+import { requireSession } from '@/lib/api-auth';
 
 export async function GET() {
+  try {
+    await requireSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const tasks = await prisma.task.findMany({
     include: {
       comments: { orderBy: { createdAt: 'desc' } },
@@ -14,6 +21,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  try {
+    await requireSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const body = await request.json();
   const task = await prisma.task.create({
     data: {
