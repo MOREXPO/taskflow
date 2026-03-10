@@ -53,35 +53,35 @@ body {
   @apply inline-flex items-center px-2.5 py-1 rounded-full;
 }
 
-.kanban-todo { @apply bg-amber-50/25 dark:bg-amber-950/10; }
-.kanban-doing { @apply bg-blue-50/25 dark:bg-blue-950/10; }
-.kanban-done { @apply bg-emerald-50/25 dark:bg-emerald-950/10; }
+.kanban-todo { @apply bg-white dark:bg-zinc-900; }
+.kanban-doing { @apply bg-white dark:bg-zinc-900; }
+.kanban-done { @apply bg-white dark:bg-zinc-900; }
 
-.kanban-title-todo { @apply bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300; }
-.kanban-title-doing { @apply bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300; }
-.kanban-title-done { @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300; }
+.kanban-title-todo { @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
+.kanban-title-doing { @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
+.kanban-title-done { @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
 
 .kanban-count {
   @apply text-xs font-semibold px-2 py-1 rounded-full;
 }
-.kanban-count-todo { @apply bg-amber-100/70 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300; }
-.kanban-count-doing { @apply bg-blue-100/70 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300; }
-.kanban-count-done { @apply bg-emerald-100/70 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300; }
+.kanban-count-todo { @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
+.kanban-count-doing { @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
+.kanban-count-done { @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
 
 .task-card {
   @apply rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 shadow-sm hover:shadow-md transition;
 }
 
 .task-todo {
-  @apply bg-amber-50/30 dark:bg-amber-950/10;
+  @apply bg-zinc-50 dark:bg-zinc-950;
 }
 
 .task-doing {
-  @apply bg-blue-50/30 dark:bg-blue-950/10;
+  @apply bg-zinc-50 dark:bg-zinc-950;
 }
 
 .task-done {
-  @apply bg-emerald-50/30 dark:bg-emerald-950/10;
+  @apply bg-zinc-50 dark:bg-zinc-950;
 }
 
 .badge {
