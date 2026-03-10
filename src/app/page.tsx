@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 
 import clsx from 'clsx';
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isBefore, isSameMonth, isToday, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { Task, TaskStatus, Priority } from '@/lib/types';
-import { Moon, Sun, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Moon, Sun, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 
 const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'BLOCKED'];
 
@@ -88,6 +89,11 @@ export default function Home() {
     document.documentElement.classList.toggle('dark', next);
     document.body.classList.toggle('dark', next);
     localStorage.setItem('taskflow_theme', next ? 'dark' : 'light');
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
   }
 
   const metrics = useMemo(() => {
@@ -186,8 +192,11 @@ export default function Home() {
               <p className="text-sm text-zinc-500">Gestor de tareas profesional para tu trabajo diario</p>
             </div>
             <div className="flex items-center gap-2">
-              {me?.role === 'ADMIN' && <a href="/admin/users" className="btn-secondary">Usuarios</a>}
+              {me?.role === 'ADMIN' && (
+                <Link href="/admin/users" className="btn-secondary">Usuarios</Link>
+              )}
               <button onClick={toggleTheme} className="btn-secondary">{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
+              <button onClick={logout} className="btn-secondary"><LogOut size={16} /> Salir</button>
               <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>
             </div>
           </div>
