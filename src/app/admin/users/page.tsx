@@ -57,7 +57,7 @@ export default function AdminUsersPage() {
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="text-2xl font-semibold tracking-tight hover:opacity-80 transition">TaskFlow</Link>
+          <Link href="/" className="btn-secondary">← Volver</Link>
           <h1 className="text-lg text-zinc-500">Panel Admin · Usuarios</h1>
         </div>
 
