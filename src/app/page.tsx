@@ -428,25 +428,55 @@ function MonthlyCalendar({
 }
 
 function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () => void; onSaved: () => void }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const today = new Date().toISOString().slice(0, 10);
+  const [mode, setMode] = useState<'SINGLE' | 'RANGE'>('SINGLE');
+  const [date, setDate] = useState(today);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [hours, setHours] = useState('0.5');
   const [note, setNote] = useState('');
 
   const totalLogged = (task.timeEntries || []).reduce((acc, t) => acc + (t.minutes || 0), 0);
   const totalHours = (totalLogged / 60).toFixed(2);
 
+  function getDatesInRange(start: string, end: string) {
+    const out: string[] = [];
+    const s = new Date(start + 'T00:00:00');
+    const e = new Date(end + 'T00:00:00');
+    if (e < s) return out;
+    const cur = new Date(s);
+    while (cur <= e) {
+      out.push(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    await fetch('/api/time-entries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        taskId: task.id,
-        date,
-        minutes: Math.max(1, Math.round(Number(hours) * 60)),
-        note,
-      }),
-    });
+    const minutes = Math.max(1, Math.round(Number(hours) * 60));
+    const dates = mode === 'SINGLE' ? [date] : getDatesInRange(startDate, endDate);
+
+    if (!dates.length) {
+      alert('Rango de fechas no válido');
+      return;
+    }
+
+    await Promise.all(
+      dates.map((d) =>
+        fetch('/api/time-entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskId: task.id,
+            date: d,
+            minutes,
+            note,
+          }),
+        })
+      )
+    );
+
     onSaved();
   }
 
@@ -455,10 +485,24 @@ function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () =>
       <form onMouseDown={(e) => e.stopPropagation()} onSubmit={submit} className="w-full max-w-xl rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
         <h3 className="text-xl font-semibold">Registrar tiempo · {task.title}</h3>
         <p className="text-sm text-zinc-500">Tiempo acumulado: {totalHours} h</p>
-        <div className="grid md:grid-cols-3 gap-2">
-          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          <input className="input" type="number" min={0.1} step={0.1} value={hours} onChange={(e) => setHours(e.target.value)} required />
+
+        <div className="flex gap-2">
+          <button type="button" className={clsx('btn-secondary', mode === 'SINGLE' && 'ring-2 ring-indigo-400')} onClick={() => setMode('SINGLE')}>Día</button>
+          <button type="button" className={clsx('btn-secondary', mode === 'RANGE' && 'ring-2 ring-indigo-400')} onClick={() => setMode('RANGE')}>Rango</button>
         </div>
+
+        {mode === 'SINGLE' ? (
+          <div className="grid md:grid-cols-3 gap-2">
+            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <input className="input" type="number" min={0.1} step={0.1} value={hours} onChange={(e) => setHours(e.target.value)} required />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-2">
+            <input className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+            <input className="input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+            <input className="input" type="number" min={0.1} step={0.1} value={hours} onChange={(e) => setHours(e.target.value)} required />
+          </div>
+        )}
         <textarea className="input min-h-20" placeholder="Nota opcional" value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="max-h-40 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800 p-2 text-xs">
           {(task.timeEntries || []).slice(0, 20).map((t) => (
