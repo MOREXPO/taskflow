@@ -430,10 +430,11 @@ function MonthlyCalendar({
 
 function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () => void; onSaved: () => void }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [minutes, setMinutes] = useState('30');
+  const [hours, setHours] = useState('0.5');
   const [note, setNote] = useState('');
 
   const totalLogged = (task.timeEntries || []).reduce((acc, t) => acc + (t.minutes || 0), 0);
+  const totalHours = (totalLogged / 60).toFixed(2);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -443,7 +444,7 @@ function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () =>
       body: JSON.stringify({
         taskId: task.id,
         date,
-        minutes: Number(minutes),
+        minutes: Math.max(1, Math.round(Number(hours) * 60)),
         note,
       }),
     });
@@ -454,16 +455,16 @@ function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () =>
     <div className="fixed inset-0 bg-black/40 p-4 grid place-items-center z-50" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form onMouseDown={(e) => e.stopPropagation()} onSubmit={submit} className="w-full max-w-xl rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
         <h3 className="text-xl font-semibold">Registrar tiempo · {task.title}</h3>
-        <p className="text-sm text-zinc-500">Tiempo acumulado: {totalLogged} min</p>
+        <p className="text-sm text-zinc-500">Tiempo acumulado: {totalHours} h</p>
         <div className="grid md:grid-cols-3 gap-2">
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          <input className="input" type="number" min={1} value={minutes} onChange={(e) => setMinutes(e.target.value)} required />
+          <input className="input" type="number" min={0.1} step={0.1} value={hours} onChange={(e) => setHours(e.target.value)} required />
         </div>
         <textarea className="input min-h-20" placeholder="Nota opcional" value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="max-h-40 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800 p-2 text-xs">
           {(task.timeEntries || []).slice(0, 20).map((t) => (
             <div key={t.id} className="py-1 border-b border-zinc-100 dark:border-zinc-800">
-              {t.date.slice(0,10)} · {t.minutes} min {t.note ? `· ${t.note}` : ''}
+              {t.date.slice(0,10)} · {(t.minutes / 60).toFixed(2)} h {t.note ? `· ${t.note}` : ''}
             </div>
           ))}
         </div>
