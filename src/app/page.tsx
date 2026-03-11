@@ -343,7 +343,6 @@ function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart }: { task: Ta
       {task.description && <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1.5 leading-relaxed">{task.description}</p>}
       <div className="mt-2 flex flex-wrap gap-1">{task.tags.split(',').filter(Boolean).map((t) => <span key={t} className="tag">#{t.trim()}</span>)}</div>
       <div className="mt-3 text-xs text-zinc-500 space-y-1">
-        {typeof task.estimatedMinutes === 'number' && <p>⏱ {task.estimatedMinutes} min</p>}
         {task.dueDate && <p className={clsx(overdue && 'text-red-500 font-semibold')}>Límite: {format(parseISO(task.dueDate), 'dd/MM/yyyy')} {isToday(parseISO(task.dueDate)) && '· hoy'}</p>}
       </div>
       <div className="mt-3 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex gap-2">
@@ -358,7 +357,7 @@ function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart }: { task: Ta
 function TaskRow({ task, onEdit, onDelete, onLogTime, onMove }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onMove: (id: string, s: TaskStatus) => void }) {
   return (
     <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 grid md:grid-cols-6 gap-2 items-center">
-      <div className="md:col-span-2"><p className="font-medium">{task.title}</p><p className="text-xs text-zinc-500">{typeof task.estimatedMinutes === 'number' ? `⏱ ${task.estimatedMinutes} min` : 'Sin tiempo estimado'}</p></div>
+      <div className="md:col-span-2"><p className="font-medium">{task.title}</p></div>
       <div><span className={clsx('badge', `p-${task.priority.toLowerCase()}`)}>{priorityLabel[task.priority]}</span></div>
       <div className="text-sm">{task.dueDate ? format(parseISO(task.dueDate), 'dd/MM/yyyy') : '-'}</div>
       <div>
@@ -483,7 +482,6 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
     status: task?.status || 'PENDING',
     tags: task?.tags || '',
     internalNotes: task?.internalNotes || '',
-    estimatedMinutes: task?.estimatedMinutes?.toString() || '',
   });
 
   async function submit(e: React.FormEvent) {
@@ -495,7 +493,6 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        estimatedMinutes: form.estimatedMinutes ? Number(form.estimatedMinutes) : null,
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
       }),
     });
@@ -513,7 +510,6 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
           <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>{statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}</select>
         </div>
-        <input className="input" type="number" min={0} placeholder="Tiempo estimado tarea (min)" value={form.estimatedMinutes} onChange={(e) => setForm({ ...form, estimatedMinutes: e.target.value })} />
         <input className="input" placeholder="Etiquetas separadas por coma" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
 
         <textarea className="input min-h-20" placeholder="Notas internas" value={form.internalNotes} onChange={(e) => setForm({ ...form, internalNotes: e.target.value })} />
