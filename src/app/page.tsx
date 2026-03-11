@@ -8,7 +8,7 @@ import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isBefore, 
 import { Task, TaskStatus, Priority } from '@/lib/types';
 import { Moon, Sun, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 
-const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'BLOCKED'];
+const statuses: TaskStatus[] = ['PENDING', 'BLOCKED', 'TESTING', 'COMPLETED'];
 
 const statusLabels: Record<TaskStatus, string> = {
   PENDING: 'Pendiente',
@@ -42,6 +42,7 @@ export default function Home() {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [editing, setEditing] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [timeTask, setTimeTask] = useState<Task | null>(null);
   const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
 
   const [dragId, setDragId] = useState<string | null>(null);
@@ -275,7 +276,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-3 min-h-24">
                   {byStatus(status).map((task) => (
-                    <TaskCard key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onDragStart={() => setDragId(task.id)} />
+                    <TaskCard key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onDragStart={() => setDragId(task.id)} />
                   ))}
                 </div>
               </div>
@@ -283,7 +284,7 @@ export default function Home() {
           </div>
         ) : view === 'LIST' ? (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-            {filtered.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onMove={moveTask} />)}
+            {filtered.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onMove={moveTask} />)}
           </div>
         ) : (
           <MonthlyCalendar
@@ -307,6 +308,17 @@ export default function Home() {
           }}
         />
       )}
+
+      {timeTask && (
+        <TimeEntryModal
+          task={timeTask}
+          onClose={() => setTimeTask(null)}
+          onSaved={async () => {
+            setTimeTask(null);
+            await loadTasks();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -320,7 +332,7 @@ function Metric({ label, value, danger = false, suffix = '' }: { label: string; 
   );
 }
 
-function TaskCard({ task, onEdit, onDelete, onDragStart }: { task: Task; onEdit: () => void; onDelete: () => void; onDragStart: () => void }) {
+function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onDragStart: () => void }) {
   const overdue = task.dueDate && isBefore(parseISO(task.dueDate), new Date()) && task.status !== 'COMPLETED';
   return (
     <div id={task.id} draggable onDragStart={onDragStart} className={clsx('task-card cursor-grab active:cursor-grabbing', overdue && 'ring-1 ring-red-400')}>
@@ -338,6 +350,7 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: { task: Task; onEdit:
         {task.dueDate && <p className={clsx(overdue && 'text-red-500 font-semibold')}>Límite: {format(parseISO(task.dueDate), 'dd/MM/yyyy')} {isToday(parseISO(task.dueDate)) && '· hoy'}</p>}
       </div>
       <div className="mt-3 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex gap-2">
+        <button className="btn-secondary" onClick={onLogTime}>⏱</button>
         <button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button>
         <button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button>
       </div>
@@ -345,7 +358,7 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: { task: Task; onEdit:
   );
 }
 
-function TaskRow({ task, onEdit, onDelete, onMove }: { task: Task; onEdit: () => void; onDelete: () => void; onMove: (id: string, s: TaskStatus) => void }) {
+function TaskRow({ task, onEdit, onDelete, onLogTime, onMove }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onMove: (id: string, s: TaskStatus) => void }) {
   return (
     <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 grid md:grid-cols-6 gap-2 items-center">
       <div className="md:col-span-2"><p className="font-medium">{task.title}</p><p className="text-xs text-zinc-500">{typeof task.estimatedMinutes === 'number' ? `⏱ ${task.estimatedMinutes} min` : 'Sin tiempo estimado'}</p></div>
@@ -356,7 +369,7 @@ function TaskRow({ task, onEdit, onDelete, onMove }: { task: Task; onEdit: () =>
           {statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
         </select>
       </div>
-      <div className="flex gap-2 justify-end"><button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
+      <div className="flex gap-2 justify-end"><button className="btn-secondary" onClick={onLogTime}>⏱</button><button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
     </div>
   );
 }
@@ -414,6 +427,57 @@ function MonthlyCalendar({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () => void; onSaved: () => void }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [minutes, setMinutes] = useState('30');
+  const [note, setNote] = useState('');
+  const [subtaskId, setSubtaskId] = useState('');
+
+  const totalLogged = (task.timeEntries || []).reduce((acc, t) => acc + (t.minutes || 0), 0);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    await fetch('/api/time-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taskId: task.id,
+        subtaskId: subtaskId || null,
+        date,
+        minutes: Number(minutes),
+        note,
+      }),
+    });
+    onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 p-4 grid place-items-center z-50" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <form onMouseDown={(e) => e.stopPropagation()} onSubmit={submit} className="w-full max-w-xl rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
+        <h3 className="text-xl font-semibold">Registrar tiempo · {task.title}</h3>
+        <p className="text-sm text-zinc-500">Tiempo acumulado: {totalLogged} min</p>
+        <div className="grid md:grid-cols-3 gap-2">
+          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <input className="input" type="number" min={1} value={minutes} onChange={(e) => setMinutes(e.target.value)} required />
+          <select className="input" value={subtaskId} onChange={(e) => setSubtaskId(e.target.value)}>
+            <option value="">Tarea principal</option>
+            {task.subtasks?.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+          </select>
+        </div>
+        <textarea className="input min-h-20" placeholder="Nota opcional" value={note} onChange={(e) => setNote(e.target.value)} />
+        <div className="max-h-40 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800 p-2 text-xs">
+          {(task.timeEntries || []).slice(0, 20).map((t) => (
+            <div key={t.id} className="py-1 border-b border-zinc-100 dark:border-zinc-800">
+              {t.date.slice(0,10)} · {t.minutes} min {t.note ? `· ${t.note}` : ''}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button><button className="btn-primary">Guardar tiempo</button></div>
+      </form>
     </div>
   );
 }

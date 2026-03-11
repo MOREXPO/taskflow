@@ -14,7 +14,8 @@ export async function GET() {
     include: {
       comments: { orderBy: { createdAt: 'desc' } },
       history: { orderBy: { createdAt: 'desc' }, take: 6 },
-      subtasks: { orderBy: { createdAt: 'asc' } },
+      subtasks: { orderBy: { createdAt: 'asc' }, include: { timeEntries: { orderBy: { date: 'desc' } } } },
+      timeEntries: { orderBy: { date: 'desc' } },
     },
     orderBy: { updatedAt: 'desc' },
   });
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
         },
       },
     },
-    include: { comments: true, history: true, subtasks: true },
+    include: { comments: true, history: true, subtasks: { include: { timeEntries: true } }, timeEntries: true },
   });
 
   return NextResponse.json(task, { status: 201 });

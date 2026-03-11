@@ -56,7 +56,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     include: {
       comments: { orderBy: { createdAt: 'desc' } },
       history: { orderBy: { createdAt: 'desc' }, take: 6 },
-      subtasks: { orderBy: { createdAt: 'asc' } },
+      subtasks: { orderBy: { createdAt: 'asc' }, include: { timeEntries: { orderBy: { date: 'desc' } } } },
+      timeEntries: { orderBy: { date: 'desc' } },
     },
   });
 

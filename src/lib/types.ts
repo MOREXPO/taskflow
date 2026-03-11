@@ -16,5 +16,6 @@ export type Task = {
   updatedAt: string;
   comments: { id: string; content: string; createdAt: string }[];
   history: { id: string; fromStatus: TaskStatus | null; toStatus: TaskStatus; note: string | null; createdAt: string }[];
-  subtasks: { id: string; title: string; estimatedMinutes: number | null; completed: boolean }[];
+  subtasks: { id: string; title: string; estimatedMinutes: number | null; completed: boolean; timeEntries?: { id: string; date: string; minutes: number; note: string | null }[] }[];
+  timeEntries: { id: string; date: string; minutes: number; note: string | null; subtaskId: string | null }[];
 };
