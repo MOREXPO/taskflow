@@ -449,14 +449,16 @@ function MonthlyCalendar({
       </div>
       <div className="grid grid-cols-7 gap-2">
         {tasksByDay.map(({ day, items, entries, totalHours }) => (
-          <div key={day.toISOString()} className={clsx('min-h-28 rounded-xl border p-2', mode === 'WEEK' || isSameMonth(day, month) ? 'border-zinc-200 dark:border-zinc-800' : 'border-zinc-100 dark:border-zinc-900 opacity-60')}>
+          <div key={day.toISOString()} className={clsx('min-h-36 rounded-xl border p-2', mode === 'WEEK' || isSameMonth(day, month) ? 'border-zinc-200 dark:border-zinc-800' : 'border-zinc-100 dark:border-zinc-900 opacity-60')}>
             <p className={clsx('text-xs mb-1', isToday(day) && 'font-bold text-indigo-500')}>{format(day, 'd')}</p>
             {totalHours > 0 && <p className="text-[11px] text-indigo-600 mb-1">⏱ {totalHours.toFixed(2)} h</p>}
             <div className="space-y-1">
               {items.slice(0, 2).map((t) => (
                 <button
+                  type="button"
                   key={t.id}
-                  className={clsx('text-[11px] px-1.5 py-1 rounded-lg truncate bg-zinc-100 text-zinc-700 w-full text-left hover:bg-zinc-200')}
+                  title={t.title}
+                  className={clsx('text-[11px] px-1.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 w-full text-left hover:bg-zinc-200 whitespace-normal break-words leading-tight')}
                   onClick={() => onOpenTask(t)}
                 >
                   {t.title}
