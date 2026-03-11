@@ -183,6 +183,12 @@ export default function Home() {
     }
   }
 
+  async function deleteTimeEntry(id: string) {
+    if (!confirm('¿Borrar registro de horas?')) return;
+    await fetch(`/api/time-entries/${id}`, { method: 'DELETE' });
+    await loadTasks();
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
@@ -293,6 +299,7 @@ export default function Home() {
             onPrevMonth={() => setCalendarMonth((m) => addMonths(m, -1))}
             onNextMonth={() => setCalendarMonth((m) => addMonths(m, 1))}
             onToday={() => setCalendarMonth(new Date())}
+            onDeleteTimeEntry={deleteTimeEntry}
           />
         )}
       </div>
@@ -376,12 +383,14 @@ function MonthlyCalendar({
   onPrevMonth,
   onNextMonth,
   onToday,
+  onDeleteTimeEntry,
 }: {
   tasks: Task[];
   month: Date;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onToday: () => void;
+  onDeleteTimeEntry: (id: string) => void;
 }) {
   const today = new Date();
   const monthStart = startOfMonth(month);
@@ -391,8 +400,15 @@ function MonthlyCalendar({
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
   const tasksByDay = days.map((day) => {
-    const items = tasks.filter((t) => t.dueDate && format(parseISO(t.dueDate), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'));
-    return { day, items };
+    const key = format(day, 'yyyy-MM-dd');
+    const items = tasks.filter((t) => t.dueDate && format(parseISO(t.dueDate), 'yyyy-MM-dd') === key);
+    const entries = tasks.flatMap((t) =>
+      (t.timeEntries || [])
+        .filter((e) => e.date.slice(0, 10) === key)
+        .map((e) => ({ ...e, taskTitle: t.title }))
+    );
+    const totalHours = entries.reduce((acc, e) => acc + e.minutes, 0) / 60;
+    return { day, items, entries, totalHours };
   });
 
   return (
@@ -409,16 +425,23 @@ function MonthlyCalendar({
         {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => <div key={d}>{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-2">
-        {tasksByDay.map(({ day, items }) => (
+        {tasksByDay.map(({ day, items, entries, totalHours }) => (
           <div key={day.toISOString()} className={clsx('min-h-28 rounded-xl border p-2', isSameMonth(day, today) ? 'border-zinc-200 dark:border-zinc-800' : 'border-zinc-100 dark:border-zinc-900 opacity-60')}>
             <p className={clsx('text-xs mb-1', isToday(day) && 'font-bold text-indigo-500')}>{format(day, 'd')}</p>
+            {totalHours > 0 && <p className="text-[11px] text-indigo-600 mb-1">⏱ {totalHours.toFixed(2)} h</p>}
             <div className="space-y-1">
-              {items.slice(0, 3).map((t) => (
-                <div key={t.id} className={clsx('text-[11px] px-1.5 py-1 rounded-lg truncate', t.status === 'PENDING' && 'bg-zinc-100 text-zinc-700', t.status === 'IN_PROGRESS' && 'bg-zinc-100 text-zinc-700', t.status === 'IN_REVIEW' && 'bg-zinc-100 text-zinc-700', t.status === 'TESTING' && 'bg-zinc-100 text-zinc-700', t.status === 'COMPLETED' && 'bg-zinc-100 text-zinc-700', t.status === 'BLOCKED' && 'bg-zinc-100 text-zinc-700')}>
+              {items.slice(0, 2).map((t) => (
+                <div key={t.id} className={clsx('text-[11px] px-1.5 py-1 rounded-lg truncate', 'bg-zinc-100 text-zinc-700')}>
                   {t.title}
                 </div>
               ))}
-              {items.length > 3 && <div className="text-[11px] text-zinc-500">+{items.length - 3} más</div>}
+              {entries.slice(0, 2).map((e) => (
+                <div key={e.id} className="text-[11px] px-1.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-between gap-1">
+                  <span className="truncate">{e.taskTitle} · {(e.minutes / 60).toFixed(1)}h</span>
+                  <button className="text-red-500" onClick={() => onDeleteTimeEntry(e.id)}>x</button>
+                </div>
+              ))}
+              {(items.length > 2 || entries.length > 2) && <div className="text-[11px] text-zinc-500">+más</div>}
             </div>
           </div>
         ))}
