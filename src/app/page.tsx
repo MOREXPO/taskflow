@@ -8,7 +8,7 @@ import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isBefore, 
 import { Task, TaskStatus, Priority } from '@/lib/types';
 import { Moon, Sun, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 
-const statuses: TaskStatus[] = ['PENDING', 'BLOCKED', 'TESTING', 'COMPLETED'];
+const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'BLOCKED'];
 
 const statusLabels: Record<TaskStatus, string> = {
   PENDING: 'Pendiente',
