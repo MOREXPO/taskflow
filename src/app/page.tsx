@@ -44,7 +44,6 @@ export default function Home() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [timeTask, setTimeTask] = useState<Task | null>(null);
-  const [calendarTask, setCalendarTask] = useState<Task | null>(null);
   const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
 
   const [dragId, setDragId] = useState<string | null>(null);
@@ -304,7 +303,6 @@ export default function Home() {
             onNextMonth={() => setCalendarMonth((m) => (calendarMode === 'MONTH' ? addMonths(m, 1) : addWeeks(m, 1)))}
             onToday={() => setCalendarMonth(new Date())}
             onDeleteTimeEntry={deleteTimeEntry}
-            onOpenTask={setCalendarTask}
           />
         )}
       </div>
@@ -330,10 +328,6 @@ export default function Home() {
             await loadTasks();
           }}
         />
-      )}
-
-      {calendarTask && (
-        <TaskDetailsModal task={calendarTask} onClose={() => setCalendarTask(null)} />
       )}
     </div>
   );
@@ -395,7 +389,6 @@ function MonthlyCalendar({
   onNextMonth,
   onToday,
   onDeleteTimeEntry,
-  onOpenTask,
 }: {
   tasks: Task[];
   month: Date;
@@ -405,7 +398,6 @@ function MonthlyCalendar({
   onNextMonth: () => void;
   onToday: () => void;
   onDeleteTimeEntry: (id: string) => void;
-  onOpenTask: (task: Task) => void;
 }) {
   const today = new Date();
   const monthStart = startOfMonth(month);
@@ -454,15 +446,13 @@ function MonthlyCalendar({
             {totalHours > 0 && <p className="text-[11px] text-indigo-600 mb-1">⏱ {totalHours.toFixed(2)} h</p>}
             <div className="space-y-1">
               {items.slice(0, 2).map((t) => (
-                <button
-                  type="button"
+                <div
                   key={t.id}
                   title={t.title}
-                  className={clsx('text-[11px] px-1.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 w-full text-left hover:bg-zinc-200 whitespace-normal break-words leading-tight')}
-                  onClick={() => onOpenTask(t)}
+                  className={clsx('text-[11px] px-1.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 w-full text-left whitespace-normal break-words leading-tight')}
                 >
                   {t.title}
-                </button>
+                </div>
               ))}
               {entries.slice(0, 2).map((e) => (
                 <div key={e.id} className="text-[11px] px-1.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-between gap-1">
@@ -474,36 +464,6 @@ function MonthlyCalendar({
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function TaskDetailsModal({ task, onClose }: { task: Task; onClose: () => void }) {
-  const totalHours = ((task.timeEntries || []).reduce((acc, t) => acc + (t.minutes || 0), 0) / 60).toFixed(2);
-
-  return (
-    <div className="fixed inset-0 bg-black/40 p-4 grid place-items-center z-50" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-2xl rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
-        <h3 className="text-xl font-semibold">{task.title}</h3>
-        <p className="text-sm text-zinc-500">Estado: {statusLabels[task.status]} · Prioridad: {priorityLabel[task.priority]}</p>
-        {task.description && <p className="text-sm">{task.description}</p>}
-        {task.internalNotes && <p className="text-sm text-zinc-500">Notas: {task.internalNotes}</p>}
-        <p className="text-sm">Tiempo total registrado: <strong>{totalHours} h</strong></p>
-
-        <div className="max-h-56 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800 p-2 text-sm">
-          {(task.timeEntries || []).length === 0 ? (
-            <p className="text-zinc-500">Sin registros de horas.</p>
-          ) : (
-            (task.timeEntries || []).map((t) => (
-              <div key={t.id} className="py-1 border-b border-zinc-100 dark:border-zinc-800">
-                {t.date.slice(0, 10)} · {(t.minutes / 60).toFixed(2)} h {t.note ? `· ${t.note}` : ''}
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="flex justify-end"><button className="btn-secondary" onClick={onClose}>Cerrar</button></div>
       </div>
     </div>
   );
