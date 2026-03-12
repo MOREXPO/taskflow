@@ -4,6 +4,9 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'TaskFlow',
   description: 'Gestor de tareas Kanban profesional',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
