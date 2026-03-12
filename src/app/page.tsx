@@ -8,13 +8,14 @@ import { addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, 
 import { Task, TaskStatus, Priority } from '@/lib/types';
 import { Moon, Sun, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 
-const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'BLOCKED'];
+const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'DOCUMENTING', 'COMPLETED', 'BLOCKED'];
 
 const statusLabels: Record<TaskStatus, string> = {
   PENDING: 'Pendiente',
   IN_PROGRESS: 'En desarrollo',
   IN_REVIEW: 'En revisión',
   TESTING: 'Testing',
+  DOCUMENTING: 'Documentando',
   COMPLETED: 'Completado',
   BLOCKED: 'Bloqueado',
 };
@@ -102,7 +103,7 @@ export default function Home() {
     const now = new Date();
     return {
       todo: tasks.filter((t) => t.status === 'PENDING').length,
-      doing: tasks.filter((t) => ['IN_PROGRESS', 'IN_REVIEW', 'TESTING'].includes(t.status)).length,
+      doing: tasks.filter((t) => ['IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'DOCUMENTING'].includes(t.status)).length,
       done: tasks.filter((t) => t.status === 'COMPLETED').length,
       overdue: tasks.filter((t) => t.dueDate && isBefore(parseISO(t.dueDate), now) && t.status !== 'COMPLETED').length,
     };

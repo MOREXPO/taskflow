@@ -1,5 +1,5 @@
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'TESTING' | 'COMPLETED' | 'BLOCKED';
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'TESTING' | 'DOCUMENTING' | 'COMPLETED' | 'BLOCKED';
 
 export type Task = {
   id: string;
