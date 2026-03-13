@@ -42,10 +42,10 @@ if (users.length === 0) {
     const assignedRaw = runSql(`select count(*) from Task where ownerUserId='${user.id}';`);
     const assignedTasks = Number(assignedRaw || '0');
 
-    const totalRaw = runSql(`select coalesce(sum(te.minutes),0) from TimeEntry te join Task t on t.id = te.taskId where te.date >= datetime('now','-7 days') and t.ownerUserId='${user.id}';`);
+    const totalRaw = runSql(`select coalesce(sum(te.minutes),0) from TimeEntry te join Task t on t.id = te.taskId where cast(te.date as integer) >= (strftime('%s','now','-7 days') * 1000) and t.ownerUserId='${user.id}';`);
     const totalMinutes = Number(totalRaw || '0');
 
-    const rowsRaw = runSql(`select t.title, sum(te.minutes) as m from TimeEntry te join Task t on t.id = te.taskId where te.date >= datetime('now','-7 days') and t.ownerUserId='${user.id}' group by te.taskId order by m desc;`);
+    const rowsRaw = runSql(`select t.title, sum(te.minutes) as m from TimeEntry te join Task t on t.id = te.taskId where cast(te.date as integer) >= (strftime('%s','now','-7 days') * 1000) and t.ownerUserId='${user.id}' group by te.taskId order by m desc;`);
     const rows = rowsRaw
       ? rowsRaw.split('\n').map((line) => {
           const [title, mins] = line.split('|');
