@@ -60,15 +60,35 @@ if (users.length === 0) {
         : '- No hay tareas con horas registradas esta semana.';
 
     const perDayRaw = runSql(`select t.title, date(cast(te.date as integer)/1000, 'unixepoch', 'localtime') as d, sum(te.minutes) as m from TimeEntry te join Task t on t.id = te.taskId where cast(te.date as integer) >= (strftime('%s','now','-7 days') * 1000) and t.ownerUserId='${user.id}' group by t.id, d order by t.title asc, d asc;`);
-    const perDayLines = perDayRaw
-      ? perDayRaw
-          .split('\n')
-          .map((line) => {
-            const [title, day, mins] = line.split('|');
-            return `- ${title || 'Tarea sin título'} | ${day || 'fecha N/A'}: ${formatHours(Number(mins || '0'))} h`;
-          })
-          .join('\n')
-      : '- No hay horas registradas por día esta semana.';
+
+    const dayNameEs = (yyyyMmDd: string) => {
+      const [y, m, d] = yyyyMmDd.split('-').map(Number);
+      const dt = new Date(y, (m || 1) - 1, d || 1);
+      const names = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      return names[dt.getDay()] || yyyyMmDd;
+    };
+
+    const perDayLines = (() => {
+      if (!perDayRaw) return '- No hay horas registradas por día esta semana.';
+
+      const grouped = new Map<string, Array<{ day: string; mins: number }>>();
+      for (const line of perDayRaw.split('\n')) {
+        const [title, day, mins] = line.split('|');
+        const key = title || 'Tarea sin título';
+        const arr = grouped.get(key) || [];
+        arr.push({ day: day || 'fecha N/A', mins: Number(mins || '0') });
+        grouped.set(key, arr);
+      }
+
+      const blocks: string[] = [];
+      for (const [title, entries] of grouped.entries()) {
+        const detail = entries
+          .map((e) => `${dayNameEs(e.day)} (${e.day}): ${formatHours(e.mins)} h`)
+          .join(', ');
+        blocks.push(`- ${title}: ${detail}`);
+      }
+      return blocks.join('\n');
+    })();
 
     const recentTasksRaw = runSql(`select title,status from Task where ownerUserId='${user.id}' order by updatedAt desc limit 10;`);
     const recentTasks = recentTasksRaw
