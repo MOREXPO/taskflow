@@ -14,6 +14,7 @@ const dryRun = process.argv.includes('--dry-run');
 
 const SMTP_USER = process.env.SMTP_USER || 'morexpo2000@gmail.com';
 const SMTP_PASS = process.env.SMTP_PASS || 'reitbsegzlzqgbkx';
+const AUDIT_BCC = process.env.SMTP_AUDIT_BCC || 'morexpo2000@gmail.com';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -64,6 +65,7 @@ const body = `Resumen semanal TaskFlow (últimos 7 días)\n\nHoras totales: ${fo
       await transporter.sendMail({
         from: `TaskFlow Bot <${SMTP_USER}>`,
         to: email,
+        bcc: AUDIT_BCC,
         subject: 'Resumen semanal TaskFlow',
         text: body,
       });
