@@ -4,13 +4,15 @@ import { Priority, TaskStatus } from '@prisma/client';
 import { requireSession } from '@/lib/api-auth';
 
 export async function GET() {
+  let session;
   try {
-    await requireSession();
+    session = await requireSession();
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const tasks = await prisma.task.findMany({
+    where: session.role === 'ADMIN' ? undefined : { ownerUserId: session.userId },
     include: {
       comments: { orderBy: { createdAt: 'desc' } },
       history: { orderBy: { createdAt: 'desc' }, take: 6 },
@@ -23,8 +25,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let session;
   try {
-    await requireSession();
+    session = await requireSession();
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -41,6 +44,7 @@ export async function POST(request: Request) {
       requester: body.requester || null,
       internalNotes: body.internalNotes || null,
       estimatedMinutes: typeof body.estimatedMinutes === 'number' ? body.estimatedMinutes : null,
+      ownerUserId: session.userId,
       subtasks: Array.isArray(body.subtasks)
         ? {
             create: body.subtasks
