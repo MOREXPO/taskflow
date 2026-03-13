@@ -59,6 +59,17 @@ if (users.length === 0) {
         ? top.map((r) => `- ${r.title}: ${formatHours(r.minutes)} h`).join('\n')
         : '- No hay tareas con horas registradas esta semana.';
 
+    const perDayRaw = runSql(`select t.title, date(cast(te.date as integer)/1000, 'unixepoch', 'localtime') as d, sum(te.minutes) as m from TimeEntry te join Task t on t.id = te.taskId where cast(te.date as integer) >= (strftime('%s','now','-7 days') * 1000) and t.ownerUserId='${user.id}' group by t.id, d order by t.title asc, d asc;`);
+    const perDayLines = perDayRaw
+      ? perDayRaw
+          .split('\n')
+          .map((line) => {
+            const [title, day, mins] = line.split('|');
+            return `- ${title || 'Tarea sin título'} | ${day || 'fecha N/A'}: ${formatHours(Number(mins || '0'))} h`;
+          })
+          .join('\n')
+      : '- No hay horas registradas por día esta semana.';
+
     const recentTasksRaw = runSql(`select title,status from Task where ownerUserId='${user.id}' order by updatedAt desc limit 10;`);
     const recentTasks = recentTasksRaw
       ? recentTasksRaw.split('\n').map((line) => {
@@ -67,7 +78,7 @@ if (users.length === 0) {
         }).join('\n')
       : '- Sin tareas asignadas.';
 
-    const body = `Resumen semanal TaskFlow (últimos 7 días)\n\nTareas asignadas totales: ${assignedTasks}\nHoras registradas en la semana: ${formatHours(totalMinutes)} h\n\nDesglose por tarea (solo tareas con horas):\n${bulletLines}\n\nTareas recientes asignadas:\n${recentTasks}\n\nGenerado automáticamente por OpenClaw.`;
+    const body = `Resumen semanal TaskFlow (últimos 7 días)\n\nTareas asignadas totales: ${assignedTasks}\nHoras registradas en la semana: ${formatHours(totalMinutes)} h\n\nDesglose por tarea (solo tareas con horas):\n${bulletLines}\n\nDesglose por día y tarea:\n${perDayLines}\n\nTareas recientes asignadas:\n${recentTasks}\n\nGenerado automáticamente por OpenClaw.`;
 
     if (dryRun) {
       console.log(`\n[DRY-RUN] ${user.email}\n${body}`);
