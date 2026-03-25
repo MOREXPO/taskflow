@@ -323,6 +323,9 @@ export default function Home() {
                 <p className="text-sm text-slate-300">Rutinas, recordatorios y tareas del día a día</p>
               </div>
               <div className="flex items-center gap-2">
+                {me?.role === 'ADMIN' && (
+                  <Link href="/admin/users" className="btn-secondary">Usuarios</Link>
+                )}
                 <button onClick={toggleTheme} className="btn-secondary">{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
                 <button onClick={logout} className="btn-secondary"><LogOut size={16} /> Salir</button>
                 <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>

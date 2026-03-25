@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -8,7 +8,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [personalMode, setPersonalMode] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPersonalMode(window.location.hostname === 'personal.iamoex.com');
+    }
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -28,8 +35,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen grid place-items-center bg-zinc-950 text-zinc-100 p-4">
       <form onSubmit={onSubmit} className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4 shadow-xl">
-        <h1 className="text-2xl font-semibold">TaskFlow</h1>
-        <p className="text-zinc-400 text-sm">Acceso privado</p>
+        <h1 className="text-2xl font-semibold">{personalMode ? 'Personal Planner' : 'TaskFlow'}</h1>
+        <p className="text-zinc-400 text-sm">{personalMode ? 'Acceso personal' : 'Acceso privado'}</p>
         <input type="email" required className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input type="password" required className="input" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} />
         {error && <p className="text-red-400 text-sm">{error}</p>}
