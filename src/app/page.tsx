@@ -343,10 +343,10 @@ export default function Home() {
             <label className="input-wrap"><Search size={16} /><input placeholder="Buscar por título o contenido..." value={query} onChange={(e) => setQuery(e.target.value)} /></label>
           </section>
 
-          <PersonalSection title="Hoy" tasks={personalSections.today} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
-          <PersonalSection title="Recordatorios próximos" tasks={personalSections.upcoming} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
-          <PersonalSection title="Pendientes sin fecha" tasks={personalSections.noDate} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
-          <PersonalSection title="Completadas recientes" tasks={personalSections.recentDone} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
+          <PersonalSection title="Hoy" tasks={personalSections.today} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+          <PersonalSection title="Recordatorios próximos" tasks={personalSections.upcoming} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+          <PersonalSection title="Pendientes sin fecha" tasks={personalSections.noDate} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+          <PersonalSection title="Completadas recientes" tasks={personalSections.recentDone} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
 
           {historicalCompleted.length > 0 && (
             <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
@@ -374,6 +374,7 @@ export default function Home() {
 
         {showForm && (
           <TaskFormModal
+            personalMode
             task={editing}
             onClose={() => setShowForm(false)}
             onSaved={async () => {
@@ -384,16 +385,7 @@ export default function Home() {
           />
         )}
 
-        {timeTask && (
-          <TimeEntryModal
-            task={timeTask}
-            onClose={() => setTimeTask(null)}
-            onSaved={async () => {
-              setTimeTask(null);
-              await loadTasks();
-            }}
-          />
-        )}
+
       </div>
     );
   }
@@ -578,14 +570,12 @@ function PersonalSection({
   onEdit,
   onDelete,
   onComplete,
-  onLogTime,
 }: {
   title: string;
   tasks: Task[];
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onComplete: (id: string) => void;
-  onLogTime: (task: Task) => void;
 }) {
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
@@ -605,7 +595,6 @@ function PersonalSection({
               </div>
               <div className="flex gap-2">
                 {task.status !== 'COMPLETED' && <button className="btn-secondary" onClick={() => onComplete(task.id)}>Completar</button>}
-                <button className="btn-secondary" onClick={() => onLogTime(task)}>⏱</button>
                 <button className="btn-secondary" onClick={() => onEdit(task)}><Pencil size={14} /></button>
                 <button className="btn-secondary text-red-500" onClick={() => onDelete(task.id)}><Trash2 size={14} /></button>
               </div>
@@ -846,7 +835,7 @@ function TimeEntryModal({ task, onClose, onSaved }: { task: Task; onClose: () =>
   );
 }
 
-function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose: () => void; onSaved: () => void }) {
+function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { personalMode?: boolean; task: Task | null; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -866,7 +855,10 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        priority: personalMode ? 'MEDIUM' : form.priority,
+        status: personalMode ? (task?.status ?? 'PENDING') : form.status,
+        tags: personalMode ? [] : form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        internalNotes: personalMode ? '' : form.internalNotes,
       }),
     });
     onSaved();
@@ -878,14 +870,21 @@ function TaskFormModal({ task, onClose, onSaved }: { task: Task | null; onClose:
         <h3 className="text-xl font-semibold">{task ? 'Editar tarea' : 'Nueva tarea'}</h3>
         <input required className="input" placeholder="Título" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         <textarea className="input min-h-20" placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        <div className="grid md:grid-cols-3 gap-2">
-          <select className="input" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>{priorities.map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</select>
-          <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
-          <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>{statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}</select>
-        </div>
-        <input className="input" placeholder="Etiquetas separadas por coma" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
-
-        <textarea className="input min-h-20" placeholder="Notas internas" value={form.internalNotes} onChange={(e) => setForm({ ...form, internalNotes: e.target.value })} />
+        {personalMode ? (
+          <div className="grid md:grid-cols-1 gap-2">
+            <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          </div>
+        ) : (
+          <>
+            <div className="grid md:grid-cols-3 gap-2">
+              <select className="input" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>{priorities.map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</select>
+              <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}>{statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}</select>
+            </div>
+            <input className="input" placeholder="Etiquetas separadas por coma" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+            <textarea className="input min-h-20" placeholder="Notas internas" value={form.internalNotes} onChange={(e) => setForm({ ...form, internalNotes: e.target.value })} />
+          </>
+        )}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button><button className="btn-primary">Guardar</button></div>
       </form>
     </div>
