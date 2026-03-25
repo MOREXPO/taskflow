@@ -82,6 +82,9 @@ export default function Home() {
   const [destName, setDestName] = useState('');
   const [destFrom, setDestFrom] = useState('');
   const [destTo, setDestTo] = useState('');
+  const [dayModalOpen, setDayModalOpen] = useState(false);
+  const [dayModalDate, setDayModalDate] = useState('');
+  const [dayActivityInput, setDayActivityInput] = useState('');
 
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -402,9 +405,15 @@ export default function Home() {
     setDestTo('');
   }
 
-  function addDayActivity(itineraryId: string, day: string) {
-    const activity = prompt(`Actividad para ${day}:`);
-    if (!activity) return;
+  function openDayPlanner(day: string) {
+    setDayModalDate(day);
+    setDayActivityInput('');
+    setDayModalOpen(true);
+  }
+
+  function addDayActivity(itineraryId: string, day: string, activity: string) {
+    const value = activity.trim();
+    if (!value) return;
     setItineraries((prev) =>
       prev.map((it) => {
         if (it.id !== itineraryId) return it;
@@ -413,7 +422,45 @@ export default function Home() {
           ...it,
           dayActivities: {
             ...(it.dayActivities || {}),
-            [day]: [...current, activity.trim()],
+            [day]: [...current, value],
+          },
+        };
+      })
+    );
+  }
+
+  function removeDayActivity(itineraryId: string, day: string, idx: number) {
+    setItineraries((prev) =>
+      prev.map((it) => {
+        if (it.id !== itineraryId) return it;
+        const current = [...(it.dayActivities?.[day] || [])];
+        current.splice(idx, 1);
+        return {
+          ...it,
+          dayActivities: {
+            ...(it.dayActivities || {}),
+            [day]: current,
+          },
+        };
+      })
+    );
+  }
+
+  function moveDayActivity(itineraryId: string, day: string, idx: number, direction: 'up' | 'down') {
+    setItineraries((prev) =>
+      prev.map((it) => {
+        if (it.id !== itineraryId) return it;
+        const arr = [...(it.dayActivities?.[day] || [])];
+        const nextIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (nextIdx < 0 || nextIdx >= arr.length) return it;
+        const tmp = arr[idx];
+        arr[idx] = arr[nextIdx];
+        arr[nextIdx] = tmp;
+        return {
+          ...it,
+          dayActivities: {
+            ...(it.dayActivities || {}),
+            [day]: arr,
           },
         };
       })
@@ -547,7 +594,7 @@ export default function Home() {
                             to={selectedItinerary.to}
                             destinations={selectedItinerary.destinations}
                             dayActivities={selectedItinerary.dayActivities || {}}
-                            onDayClick={(day) => addDayActivity(selectedItinerary.id, day)}
+                            onDayClick={(day) => openDayPlanner(day)}
                           />
                         </div>
                       )}
@@ -564,6 +611,47 @@ export default function Home() {
             </>
           )}
         </div>
+
+        {dayModalOpen && selectedItinerary && (
+          <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4" onClick={() => setDayModalOpen(false)}>
+            <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Actividades · {dayModalDate}</h3>
+                <button className="btn-secondary" onClick={() => setDayModalOpen(false)}>Cerrar</button>
+              </div>
+
+              <div className="flex gap-2">
+                <input className="input" placeholder="Nueva actividad" value={dayActivityInput} onChange={(e) => setDayActivityInput(e.target.value)} />
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    addDayActivity(selectedItinerary.id, dayModalDate, dayActivityInput);
+                    setDayActivityInput('');
+                  }}
+                >
+                  Añadir
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-72 overflow-auto">
+                {(selectedItinerary.dayActivities?.[dayModalDate] || []).length === 0 ? (
+                  <p className="text-sm text-slate-400">Sin actividades para este día.</p>
+                ) : (
+                  (selectedItinerary.dayActivities?.[dayModalDate] || []).map((a, idx) => (
+                    <div key={idx} className="rounded-xl border border-slate-700 p-2 flex items-center justify-between gap-2">
+                      <p className="text-sm text-slate-100">{idx + 1}. {a}</p>
+                      <div className="flex gap-1">
+                        <button className="btn-secondary" onClick={() => moveDayActivity(selectedItinerary.id, dayModalDate, idx, 'up')}>↑</button>
+                        <button className="btn-secondary" onClick={() => moveDayActivity(selectedItinerary.id, dayModalDate, idx, 'down')}>↓</button>
+                        <button className="btn-secondary text-red-400" onClick={() => removeDayActivity(selectedItinerary.id, dayModalDate, idx)}>✕</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {showForm && (
           <TaskFormModal
