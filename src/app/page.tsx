@@ -161,7 +161,17 @@ export default function Home() {
     return result;
   }, [tasks, query, statusFilter, priorityFilter, tagFilter, dueFilter, sortBy]);
 
-  const byStatus = (status: TaskStatus) => filtered.filter((t) => t.status === status);
+  const historicalCompleted = useMemo(() => {
+    const threshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return filtered.filter((t) => t.status === 'COMPLETED' && new Date(t.updatedAt).getTime() < threshold);
+  }, [filtered]);
+
+  const visibleTasks = useMemo(() => {
+    const archivedIds = new Set(historicalCompleted.map((t) => t.id));
+    return filtered.filter((t) => !archivedIds.has(t.id));
+  }, [filtered, historicalCompleted]);
+
+  const byStatus = (status: TaskStatus) => visibleTasks.filter((t) => t.status === status);
 
   async function handleDelete(id: string) {
     if (!confirm('¿Eliminar tarea?')) return;
@@ -292,11 +302,11 @@ export default function Home() {
           </div>
         ) : view === 'LIST' ? (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-            {filtered.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onMove={moveTask} />)}
+            {visibleTasks.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onMove={moveTask} />)}
           </div>
         ) : (
           <MonthlyCalendar
-            tasks={filtered}
+            tasks={visibleTasks}
             month={calendarMonth}
             mode={calendarMode}
             onModeChange={setCalendarMode}
@@ -305,6 +315,23 @@ export default function Home() {
             onToday={() => setCalendarMonth(new Date())}
             onDeleteTimeEntry={deleteTimeEntry}
           />
+        )}
+
+        {historicalCompleted.length > 0 && (
+          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Histórico de tareas completadas (+7 días)</h3>
+              <span className="text-xs text-zinc-500">{historicalCompleted.length} tareas</span>
+            </div>
+            <div className="space-y-2 max-h-72 overflow-auto pr-1">
+              {historicalCompleted.map((t) => (
+                <div key={t.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-2">
+                  <p className="text-sm font-medium truncate">{t.title}</p>
+                  <p className="text-xs text-zinc-500">Completada (última actualización): {format(new Date(t.updatedAt), 'dd/MM/yyyy')}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
 
