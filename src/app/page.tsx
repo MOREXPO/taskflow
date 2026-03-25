@@ -73,6 +73,7 @@ export default function Home() {
   const [personalMode, setPersonalMode] = useState(false);
   const [personalTab, setPersonalTab] = useState<'TASKS' | 'ITINERARIES'>('TASKS');
   const [itineraries, setItineraries] = useState<Array<{ id: string; title: string; from: string; to: string; notes: string; items: string[]; destinations: Array<{ id: string; name: string; from: string; to: string }> }>>([]);
+  const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null);
   const [itTitle, setItTitle] = useState('');
   const [itFrom, setItFrom] = useState('');
   const [itTo, setItTo] = useState('');
@@ -247,6 +248,11 @@ export default function Home() {
     result.sort((a, b) => +getArchiveDate(b) - +getArchiveDate(a));
     return result;
   }, [historicalCompleted, historyQuery, historyCreatedDate, historyArchivedDate]);
+
+  const selectedItinerary = useMemo(
+    () => itineraries.find((i) => i.id === selectedItineraryId) || null,
+    [itineraries, selectedItineraryId]
+  );
 
   const personalSections = useMemo(() => {
     const now = new Date();
@@ -472,39 +478,48 @@ export default function Home() {
                 <h3 className="font-semibold">Itinerarios guardados</h3>
                 {itineraries.length === 0 ? (
                   <p className="text-sm text-slate-400">No hay itinerarios todavía.</p>
+                ) : !selectedItinerary ? (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {itineraries.map((it) => (
+                      <button key={it.id} className="text-left rounded-xl border border-slate-800 p-3 hover:border-cyan-500/50 transition" onClick={() => setSelectedItineraryId(it.id)}>
+                        <p className="font-medium">{it.title}</p>
+                        <p className="text-xs text-slate-400 mt-1">{it.from || '-'} → {it.to || '-'}</p>
+                        <p className="text-xs text-slate-500 mt-1">{it.destinations.length} destinos</p>
+                      </button>
+                    ))}
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {itineraries.map((it) => (
-                      <div key={it.id} className="rounded-xl border border-slate-800 p-3 space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium">{it.title}</p>
-                          <div className="flex gap-2">
-                            <button className="btn-secondary" onClick={() => addDestination(it.id)}>Añadir destino</button>
-                            <button className="btn-secondary text-red-400" onClick={() => deleteItinerary(it.id)}>Eliminar</button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-400">{it.from || '-'} → {it.to || '-'}</p>
-                        {it.notes && <p className="text-sm text-slate-300">{it.notes}</p>}
-
-                        {it.destinations.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Destinos</p>
-                            <div className="space-y-1">
-                              {it.destinations.map((d) => (
-                                <p key={d.id} className="text-sm text-slate-200">• {d.name} — {d.from} → {d.to}</p>
-                              ))}
-                            </div>
-                            <ItineraryCalendar from={it.from} to={it.to} destinations={it.destinations} />
-                          </div>
-                        )}
-
-                        {it.items.length > 0 && (
-                          <ul className="list-disc pl-5 text-sm text-slate-200 space-y-1">
-                            {it.items.map((line, idx) => <li key={idx}>{line}</li>)}
-                          </ul>
-                        )}
+                    <div className="flex items-center justify-between gap-2">
+                      <button className="btn-secondary" onClick={() => setSelectedItineraryId(null)}>← Volver a itinerarios</button>
+                      <div className="flex gap-2">
+                        <button className="btn-secondary" onClick={() => addDestination(selectedItinerary.id)}>Añadir destino</button>
+                        <button className="btn-secondary text-red-400" onClick={() => { deleteItinerary(selectedItinerary.id); setSelectedItineraryId(null); }}>Eliminar</button>
                       </div>
-                    ))}
+                    </div>
+                    <div className="rounded-xl border border-slate-800 p-3 space-y-2">
+                      <p className="font-medium">{selectedItinerary.title}</p>
+                      <p className="text-xs text-slate-400">{selectedItinerary.from || '-'} → {selectedItinerary.to || '-'}</p>
+                      {selectedItinerary.notes && <p className="text-sm text-slate-300">{selectedItinerary.notes}</p>}
+
+                      {selectedItinerary.destinations.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Destinos</p>
+                          <div className="space-y-1">
+                            {selectedItinerary.destinations.map((d) => (
+                              <p key={d.id} className="text-sm text-slate-200">• {d.name} — {d.from} → {d.to}</p>
+                            ))}
+                          </div>
+                          <ItineraryCalendar from={selectedItinerary.from} to={selectedItinerary.to} destinations={selectedItinerary.destinations} />
+                        </div>
+                      )}
+
+                      {selectedItinerary.items.length > 0 && (
+                        <ul className="list-disc pl-5 text-sm text-slate-200 space-y-1">
+                          {selectedItinerary.items.map((line, idx) => <li key={idx}>{line}</li>)}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 )}
               </section>
@@ -719,10 +734,9 @@ function ItineraryCalendar({
   const finish = endOfWeek(endOfMonth(end), { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start, end: finish });
 
-  function labelFor(day: Date) {
+  function labelsFor(day: Date) {
     const y = format(day, 'yyyy-MM-dd');
-    const hit = destinations.find((d) => d.from <= y && y <= d.to);
-    return hit?.name || '';
+    return destinations.filter((d) => d.from <= y && y <= d.to).map((d) => d.name);
   }
 
   return (
@@ -734,11 +748,14 @@ function ItineraryCalendar({
         ))}
         {days.map((day) => {
           const inMonth = isSameMonth(day, base);
-          const lbl = labelFor(day);
+          const labels = labelsFor(day);
           return (
-            <div key={day.toISOString()} className={clsx('rounded px-1 py-1 min-h-10 border', inMonth ? 'border-slate-800' : 'border-slate-900 opacity-40')}>
+            <div key={day.toISOString()} className={clsx('rounded px-1 py-1 min-h-14 border', inMonth ? 'border-slate-800' : 'border-slate-900 opacity-40')}>
               <p className="text-[10px]">{format(day, 'd')}</p>
-              {lbl && <p className="text-[9px] text-cyan-300 truncate">{lbl}</p>}
+              {labels.slice(0, 3).map((lbl, idx) => (
+                <p key={idx} className="text-[9px] text-cyan-300 truncate">{lbl}</p>
+              ))}
+              {labels.length > 3 && <p className="text-[9px] text-slate-400">+{labels.length - 3} más</p>}
             </div>
           );
         })}
@@ -775,6 +792,7 @@ function PersonalSection({
               <div>
                 <p className="font-medium">{task.title}</p>
                 {task.dueDate && <p className="text-xs text-slate-400">Recordatorio: {format(parseISO(task.dueDate), 'dd/MM/yyyy')}</p>}
+                {task.status === 'COMPLETED' && <p className="text-xs text-emerald-300">Completada: {format(new Date(task.updatedAt), 'dd/MM/yyyy')}</p>}
               </div>
               <div className="flex gap-2">
                 {task.status !== 'COMPLETED' && <button className="btn-secondary" onClick={() => onComplete(task.id)}>Completar</button>}
