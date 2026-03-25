@@ -37,7 +37,10 @@ export default function Home() {
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | Priority>('ALL');
   const [tagFilter, setTagFilter] = useState('');
   const [dueFilter, setDueFilter] = useState('');
-  const [view, setView] = useState<'KANBAN' | 'LIST' | 'CALENDAR'>('KANBAN');
+  const [view, setView] = useState<'KANBAN' | 'LIST' | 'CALENDAR' | 'HISTORY'>('KANBAN');
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyFrom, setHistoryFrom] = useState('');
+  const [historyTo, setHistoryTo] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate'>('priority');
   const [isDark, setIsDark] = useState(true);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -163,13 +166,29 @@ export default function Home() {
 
   const historicalCompleted = useMemo(() => {
     const threshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return filtered.filter((t) => t.status === 'COMPLETED' && new Date(t.updatedAt).getTime() < threshold);
-  }, [filtered]);
+    return tasks.filter((t) => t.status === 'COMPLETED' && new Date(t.updatedAt).getTime() < threshold);
+  }, [tasks]);
 
   const visibleTasks = useMemo(() => {
     const archivedIds = new Set(historicalCompleted.map((t) => t.id));
     return filtered.filter((t) => !archivedIds.has(t.id));
   }, [filtered, historicalCompleted]);
+
+  const filteredHistorical = useMemo(() => {
+    let result = [...historicalCompleted];
+    if (historyQuery) {
+      const q = historyQuery.toLowerCase();
+      result = result.filter((t) => [t.title, t.description ?? '', t.tags].join(' ').toLowerCase().includes(q));
+    }
+    if (historyFrom) result = result.filter((t) => new Date(t.updatedAt) >= new Date(historyFrom));
+    if (historyTo) {
+      const to = new Date(historyTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter((t) => new Date(t.updatedAt) <= to);
+    }
+    result.sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+    return result;
+  }, [historicalCompleted, historyQuery, historyFrom, historyTo]);
 
   const byStatus = (status: TaskStatus) => visibleTasks.filter((t) => t.status === status);
 
@@ -251,6 +270,7 @@ export default function Home() {
               <button className={clsx(view === 'KANBAN' && 'active')} onClick={() => setView('KANBAN')}>Kanban</button>
               <button className={clsx(view === 'LIST' && 'active')} onClick={() => setView('LIST')}>Lista</button>
               <button className={clsx(view === 'CALENDAR' && 'active')} onClick={() => setView('CALENDAR')}>Calendario</button>
+              <button className={clsx(view === 'HISTORY' && 'active')} onClick={() => setView('HISTORY')}>Histórico</button>
             </div>
           </div>
         </section>
@@ -304,7 +324,7 @@ export default function Home() {
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
             {visibleTasks.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onMove={moveTask} />)}
           </div>
-        ) : (
+        ) : view === 'CALENDAR' ? (
           <MonthlyCalendar
             tasks={visibleTasks}
             month={calendarMonth}
@@ -315,21 +335,33 @@ export default function Home() {
             onToday={() => setCalendarMonth(new Date())}
             onDeleteTimeEntry={deleteTimeEntry}
           />
-        )}
-
-        {historicalCompleted.length > 0 && (
-          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-            <div className="flex items-center justify-between mb-3">
+        ) : (
+          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3">
+            <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Histórico de tareas completadas (+7 días)</h3>
-              <span className="text-xs text-zinc-500">{historicalCompleted.length} tareas</span>
+              <span className="text-xs text-zinc-500">{filteredHistorical.length} tareas</span>
             </div>
-            <div className="space-y-2 max-h-72 overflow-auto pr-1">
-              {historicalCompleted.map((t) => (
-                <div key={t.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-2">
-                  <p className="text-sm font-medium truncate">{t.title}</p>
-                  <p className="text-xs text-zinc-500">Completada (última actualización): {format(new Date(t.updatedAt), 'dd/MM/yyyy')}</p>
-                </div>
-              ))}
+
+            <div className="grid md:grid-cols-3 gap-2">
+              <input className="input" placeholder="Buscar en histórico..." value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} />
+              <input className="input" type="date" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} />
+              <input className="input" type="date" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} />
+            </div>
+
+            <div className="space-y-2 max-h-[28rem] overflow-auto pr-1">
+              {filteredHistorical.length === 0 ? (
+                <p className="text-sm text-zinc-500">Sin tareas en histórico para ese filtro.</p>
+              ) : (
+                filteredHistorical.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium truncate">{t.title}</p>
+                      <p className="text-xs text-zinc-500">Completada (última actualización): {format(new Date(t.updatedAt), 'dd/MM/yyyy')}</p>
+                    </div>
+                    <button className="btn-secondary" onClick={() => moveTask(t.id, 'IN_PROGRESS')}>Recuperar</button>
+                  </div>
+                ))
+              )}
             </div>
           </section>
         )}
