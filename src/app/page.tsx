@@ -72,7 +72,7 @@ export default function Home() {
   const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
   const [personalMode, setPersonalMode] = useState(false);
   const [personalTab, setPersonalTab] = useState<'TASKS' | 'ITINERARIES'>('TASKS');
-  const [itineraries, setItineraries] = useState<Array<{ id: string; title: string; from: string; to: string; notes: string; items: string[] }>>([]);
+  const [itineraries, setItineraries] = useState<Array<{ id: string; title: string; from: string; to: string; notes: string; items: string[]; destinations: Array<{ id: string; name: string; from: string; to: string }> }>>([]);
   const [itTitle, setItTitle] = useState('');
   const [itFrom, setItFrom] = useState('');
   const [itTo, setItTo] = useState('');
@@ -124,7 +124,13 @@ export default function Home() {
         try {
           const raw = localStorage.getItem('personal_itineraries');
           const parsed = raw ? JSON.parse(raw) : [];
-          setItineraries(Array.isArray(parsed) ? parsed : []);
+          const normalized = Array.isArray(parsed)
+            ? parsed.map((it: any) => ({
+                ...it,
+                destinations: Array.isArray(it.destinations) ? it.destinations : [],
+              }))
+            : [];
+          setItineraries(normalized);
         } catch {
           setItineraries([]);
         }
@@ -344,6 +350,7 @@ export default function Home() {
       to: itTo,
       notes: itNotes.trim(),
       items: itItems.split('\n').map((x) => x.trim()).filter(Boolean),
+      destinations: [],
     };
     setItineraries((prev) => [itinerary, ...prev]);
     setItTitle('');
@@ -356,6 +363,29 @@ export default function Home() {
   function deleteItinerary(id: string) {
     if (!confirm('¿Eliminar itinerario?')) return;
     setItineraries((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  function addDestination(itineraryId: string) {
+    const name = prompt('Nombre del destino (ciudad/país):');
+    if (!name) return;
+    const from = prompt('Fecha inicio (YYYY-MM-DD):');
+    if (!from) return;
+    const to = prompt('Fecha fin (YYYY-MM-DD):');
+    if (!to) return;
+
+    setItineraries((prev) =>
+      prev.map((it) =>
+        it.id === itineraryId
+          ? {
+              ...it,
+              destinations: [
+                ...it.destinations,
+                { id: crypto.randomUUID(), name: name.trim(), from, to },
+              ],
+            }
+          : it
+      )
+    );
   }
 
   if (personalMode) {
@@ -445,13 +475,29 @@ export default function Home() {
                 ) : (
                   <div className="space-y-3">
                     {itineraries.map((it) => (
-                      <div key={it.id} className="rounded-xl border border-slate-800 p-3 space-y-2">
+                      <div key={it.id} className="rounded-xl border border-slate-800 p-3 space-y-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium">{it.title}</p>
-                          <button className="btn-secondary text-red-400" onClick={() => deleteItinerary(it.id)}>Eliminar</button>
+                          <div className="flex gap-2">
+                            <button className="btn-secondary" onClick={() => addDestination(it.id)}>Añadir destino</button>
+                            <button className="btn-secondary text-red-400" onClick={() => deleteItinerary(it.id)}>Eliminar</button>
+                          </div>
                         </div>
                         <p className="text-xs text-slate-400">{it.from || '-'} → {it.to || '-'}</p>
                         {it.notes && <p className="text-sm text-slate-300">{it.notes}</p>}
+
+                        {it.destinations.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Destinos</p>
+                            <div className="space-y-1">
+                              {it.destinations.map((d) => (
+                                <p key={d.id} className="text-sm text-slate-200">• {d.name} — {d.from} → {d.to}</p>
+                              ))}
+                            </div>
+                            <ItineraryCalendar from={it.from} to={it.to} destinations={it.destinations} />
+                          </div>
+                        )}
+
                         {it.items.length > 0 && (
                           <ul className="list-disc pl-5 text-sm text-slate-200 space-y-1">
                             {it.items.map((line, idx) => <li key={idx}>{line}</li>)}
@@ -654,6 +700,49 @@ export default function Home() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function ItineraryCalendar({
+  from,
+  to,
+  destinations,
+}: {
+  from: string;
+  to: string;
+  destinations: Array<{ id: string; name: string; from: string; to: string }>;
+}) {
+  const base = from ? parseISO(from) : new Date();
+  const end = to ? parseISO(to) : endOfMonth(base);
+  const start = startOfWeek(startOfMonth(base), { weekStartsOn: 1 });
+  const finish = endOfWeek(endOfMonth(end), { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start, end: finish });
+
+  function labelFor(day: Date) {
+    const y = format(day, 'yyyy-MM-dd');
+    const hit = destinations.find((d) => d.from <= y && y <= d.to);
+    return hit?.name || '';
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-800 p-2">
+      <p className="text-xs text-slate-400 mb-2">Calendario visual</p>
+      <div className="grid grid-cols-7 gap-1 text-[11px]">
+        {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => (
+          <div key={d} className="text-center text-slate-500">{d}</div>
+        ))}
+        {days.map((day) => {
+          const inMonth = isSameMonth(day, base);
+          const lbl = labelFor(day);
+          return (
+            <div key={day.toISOString()} className={clsx('rounded px-1 py-1 min-h-10 border', inMonth ? 'border-slate-800' : 'border-slate-900 opacity-40')}>
+              <p className="text-[10px]">{format(day, 'd')}</p>
+              {lbl && <p className="text-[9px] text-cyan-300 truncate">{lbl}</p>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
