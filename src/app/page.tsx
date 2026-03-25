@@ -474,8 +474,8 @@ export default function Home() {
           <header className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h1 className="text-2xl md:text-3xl font-semibold">Personal Planner</h1>
-                <p className="text-sm text-slate-300">Rutinas, recordatorios y tareas del día a día</p>
+                <h1 className="text-2xl md:text-3xl font-semibold">{personalTab === 'TASKS' ? 'Personal Planner' : 'Travel Planner'}</h1>
+                <p className="text-sm text-slate-300">{personalTab === 'TASKS' ? 'Rutinas, recordatorios y tareas del día a día' : 'Itinerarios, destinos y actividades por día'}</p>
               </div>
               <div className="flex items-center gap-2">
                 {me?.role === 'ADMIN' && (
