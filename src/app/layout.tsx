@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TaskFlow',
-  description: 'Gestor de tareas Kanban profesional',
+  title: 'Personal Planner',
+  description: 'Planificador personal y gestor de tareas',
   icons: {
     icon: '/favicon.svg',
   },
@@ -21,6 +21,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         } else {
           document.documentElement.classList.remove('dark');
           document.body.classList.remove('dark');
+        }
+
+        if (window.location.hostname === 'personal.iamoex.com') {
+          document.title = 'Personal Planner';
         }
       } catch (e) {
         document.documentElement.classList.add('dark');

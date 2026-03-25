@@ -72,7 +72,7 @@ export default function Home() {
   const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
   const [personalMode, setPersonalMode] = useState(false);
   const [personalTab, setPersonalTab] = useState<'TASKS' | 'ITINERARIES'>('TASKS');
-  const [itineraries, setItineraries] = useState<Array<{ id: string; title: string; from: string; to: string; notes: string; items: string[]; destinations: Array<{ id: string; name: string; from: string; to: string }> }>>([]);
+  const [itineraries, setItineraries] = useState<Array<{ id: string; title: string; from: string; to: string; notes: string; items: string[]; destinations: Array<{ id: string; name: string; from: string; to: string }>; dayActivities: Record<string, string[]> }>>([]);
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null);
   const [itTitle, setItTitle] = useState('');
   const [itFrom, setItFrom] = useState('');
@@ -129,6 +129,7 @@ export default function Home() {
             ? parsed.map((it: any) => ({
                 ...it,
                 destinations: Array.isArray(it.destinations) ? it.destinations : [],
+                dayActivities: it.dayActivities && typeof it.dayActivities === 'object' ? it.dayActivities : {},
               }))
             : [];
           setItineraries(normalized);
@@ -143,6 +144,10 @@ export default function Home() {
     if (!personalMode) return;
     localStorage.setItem('personal_itineraries', JSON.stringify(itineraries));
   }, [personalMode, itineraries]);
+
+  useEffect(() => {
+    if (personalMode) document.title = 'Personal Planner';
+  }, [personalMode]);
 
   function toggleTheme() {
     const next = !isDark;
@@ -357,6 +362,7 @@ export default function Home() {
       notes: itNotes.trim(),
       items: itItems.split('\n').map((x) => x.trim()).filter(Boolean),
       destinations: [],
+      dayActivities: {},
     };
     setItineraries((prev) => [itinerary, ...prev]);
     setItTitle('');
@@ -394,6 +400,24 @@ export default function Home() {
     );
   }
 
+  function addDayActivity(itineraryId: string, day: string) {
+    const activity = prompt(`Actividad para ${day}:`);
+    if (!activity) return;
+    setItineraries((prev) =>
+      prev.map((it) => {
+        if (it.id !== itineraryId) return it;
+        const current = it.dayActivities?.[day] || [];
+        return {
+          ...it,
+          dayActivities: {
+            ...(it.dayActivities || {}),
+            [day]: [...current, activity.trim()],
+          },
+        };
+      })
+    );
+  }
+
   if (personalMode) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-black text-white">
@@ -410,7 +434,6 @@ export default function Home() {
                 )}
                 <button onClick={toggleTheme} className="btn-secondary">{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
                 <button onClick={logout} className="btn-secondary"><LogOut size={16} /> Salir</button>
-                <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
@@ -463,10 +486,10 @@ export default function Home() {
           ) : (
             <>
               <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
-                <h3 className="font-semibold">Nuevo itinerario</h3>
+                <h3 className="font-semibold">Nuevo viaje</h3>
                 <form onSubmit={createItinerary} className="grid md:grid-cols-2 gap-2">
                   <input className="input" placeholder="Título del viaje" value={itTitle} onChange={(e) => setItTitle(e.target.value)} required />
-                  <input className="input" placeholder="Destino principal" value={itNotes} onChange={(e) => setItNotes(e.target.value)} />
+                  <input className="input" placeholder="Descripción" value={itNotes} onChange={(e) => setItNotes(e.target.value)} />
                   <input className="input" type="date" value={itFrom} onChange={(e) => setItFrom(e.target.value)} />
                   <input className="input" type="date" value={itTo} onChange={(e) => setItTo(e.target.value)} />
                   <textarea className="input md:col-span-2 min-h-24" placeholder="Plan diario (una línea por punto: vuelos, hotel, visitas, reuniones...)" value={itItems} onChange={(e) => setItItems(e.target.value)} />
@@ -510,7 +533,13 @@ export default function Home() {
                               <p key={d.id} className="text-sm text-slate-200">• {d.name} — {d.from} → {d.to}</p>
                             ))}
                           </div>
-                          <ItineraryCalendar from={selectedItinerary.from} to={selectedItinerary.to} destinations={selectedItinerary.destinations} />
+                          <ItineraryCalendar
+                            from={selectedItinerary.from}
+                            to={selectedItinerary.to}
+                            destinations={selectedItinerary.destinations}
+                            dayActivities={selectedItinerary.dayActivities || {}}
+                            onDayClick={(day) => addDayActivity(selectedItinerary.id, day)}
+                          />
                         </div>
                       )}
 
@@ -723,10 +752,14 @@ function ItineraryCalendar({
   from,
   to,
   destinations,
+  dayActivities,
+  onDayClick,
 }: {
   from: string;
   to: string;
   destinations: Array<{ id: string; name: string; from: string; to: string }>;
+  dayActivities: Record<string, string[]>;
+  onDayClick: (day: string) => void;
 }) {
   const base = from ? parseISO(from) : new Date();
   const end = to ? parseISO(to) : endOfMonth(base);
@@ -749,14 +782,25 @@ function ItineraryCalendar({
         {days.map((day) => {
           const inMonth = isSameMonth(day, base);
           const labels = labelsFor(day);
+          const dayKey = format(day, 'yyyy-MM-dd');
+          const acts = dayActivities?.[dayKey] || [];
           return (
-            <div key={day.toISOString()} className={clsx('rounded px-1 py-1 min-h-14 border', inMonth ? 'border-slate-800' : 'border-slate-900 opacity-40')}>
+            <button
+              type="button"
+              key={day.toISOString()}
+              onClick={() => onDayClick(dayKey)}
+              className={clsx('rounded px-1 py-1 min-h-16 border text-left', inMonth ? 'border-slate-800 hover:border-cyan-600/60' : 'border-slate-900 opacity-40')}
+            >
               <p className="text-[10px]">{format(day, 'd')}</p>
-              {labels.slice(0, 3).map((lbl, idx) => (
+              {labels.slice(0, 2).map((lbl, idx) => (
                 <p key={idx} className="text-[9px] text-cyan-300 truncate">{lbl}</p>
               ))}
-              {labels.length > 3 && <p className="text-[9px] text-slate-400">+{labels.length - 3} más</p>}
-            </div>
+              {labels.length > 2 && <p className="text-[9px] text-slate-400">+{labels.length - 2} destinos</p>}
+              {acts.slice(0, 2).map((a, idx) => (
+                <p key={idx} className="text-[9px] text-emerald-300 truncate">• {a}</p>
+              ))}
+              {acts.length > 2 && <p className="text-[9px] text-slate-400">+{acts.length - 2} actividades</p>}
+            </button>
           );
         })}
       </div>

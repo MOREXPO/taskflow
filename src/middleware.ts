@@ -6,7 +6,7 @@ const AUTH_COOKIE = 'taskflow_auth';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/')) {
+  if (pathname.startsWith('/login') || pathname.startsWith('/user/new') || pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
