@@ -79,6 +79,9 @@ export default function Home() {
   const [itTo, setItTo] = useState('');
   const [itNotes, setItNotes] = useState('');
   const [itItems, setItItems] = useState('');
+  const [destName, setDestName] = useState('');
+  const [destFrom, setDestFrom] = useState('');
+  const [destTo, setDestTo] = useState('');
 
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -378,12 +381,7 @@ export default function Home() {
   }
 
   function addDestination(itineraryId: string) {
-    const name = prompt('Nombre del destino (ciudad/país):');
-    if (!name) return;
-    const from = prompt('Fecha inicio (YYYY-MM-DD):');
-    if (!from) return;
-    const to = prompt('Fecha fin (YYYY-MM-DD):');
-    if (!to) return;
+    if (!destName.trim() || !destFrom || !destTo) return;
 
     setItineraries((prev) =>
       prev.map((it) =>
@@ -392,12 +390,16 @@ export default function Home() {
               ...it,
               destinations: [
                 ...it.destinations,
-                { id: crypto.randomUUID(), name: name.trim(), from, to },
+                { id: crypto.randomUUID(), name: destName.trim(), from: destFrom, to: destTo },
               ],
             }
           : it
       )
     );
+
+    setDestName('');
+    setDestFrom('');
+    setDestTo('');
   }
 
   function addDayActivity(itineraryId: string, day: string) {
@@ -515,15 +517,22 @@ export default function Home() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <button className="btn-secondary" onClick={() => setSelectedItineraryId(null)}>← Volver a itinerarios</button>
-                      <div className="flex gap-2">
-                        <button className="btn-secondary" onClick={() => addDestination(selectedItinerary.id)}>Añadir destino</button>
-                        <button className="btn-secondary text-red-400" onClick={() => { deleteItinerary(selectedItinerary.id); setSelectedItineraryId(null); }}>Eliminar</button>
-                      </div>
+                      <button className="btn-secondary text-red-400" onClick={() => { deleteItinerary(selectedItinerary.id); setSelectedItineraryId(null); }}>Eliminar</button>
                     </div>
                     <div className="rounded-xl border border-slate-800 p-3 space-y-2">
                       <p className="font-medium">{selectedItinerary.title}</p>
                       <p className="text-xs text-slate-400">{selectedItinerary.from || '-'} → {selectedItinerary.to || '-'}</p>
                       {selectedItinerary.notes && <p className="text-sm text-slate-300">{selectedItinerary.notes}</p>}
+
+                      <div className="rounded-xl border border-slate-800 p-3 space-y-2">
+                        <p className="text-sm font-medium">Añadir destino</p>
+                        <div className="grid md:grid-cols-3 gap-2">
+                          <input className="input" placeholder="Destino" value={destName} onChange={(e) => setDestName(e.target.value)} />
+                          <input className="input" type="date" value={destFrom} onChange={(e) => setDestFrom(e.target.value)} />
+                          <input className="input" type="date" value={destTo} onChange={(e) => setDestTo(e.target.value)} />
+                        </div>
+                        <button className="btn-secondary" onClick={() => addDestination(selectedItinerary.id)}>Guardar destino</button>
+                      </div>
 
                       {selectedItinerary.destinations.length > 0 && (
                         <div className="space-y-2">
@@ -589,7 +598,7 @@ export default function Home() {
               )}
               <button onClick={toggleTheme} className="btn-secondary">{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
               <button onClick={logout} className="btn-secondary"><LogOut size={16} /> Salir</button>
-              <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>
+
             </div>
           </div>
 
