@@ -70,6 +70,7 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [timeTask, setTimeTask] = useState<Task | null>(null);
   const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
+  const [personalMode, setPersonalMode] = useState(false);
 
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -108,6 +109,10 @@ export default function Home() {
     setIsDark(useDark);
     document.documentElement.classList.toggle('dark', useDark);
     document.body.classList.toggle('dark', useDark);
+
+    if (typeof window !== 'undefined') {
+      setPersonalMode(window.location.hostname === 'personal.iamoex.com');
+    }
   }, []);
 
   function toggleTheme() {
@@ -215,6 +220,23 @@ export default function Home() {
     return result;
   }, [historicalCompleted, historyQuery, historyCreatedDate, historyArchivedDate]);
 
+  const personalSections = useMemo(() => {
+    const now = new Date();
+    const todayYmd = format(now, 'yyyy-MM-dd');
+    const active = visibleTasks.filter((t) => t.status !== 'COMPLETED');
+
+    const today = active.filter((t) => (t.dueDate || '').slice(0, 10) === todayYmd);
+    const upcoming = active
+      .filter((t) => t.dueDate && (t.dueDate || '').slice(0, 10) > todayYmd)
+      .sort((a, b) => +new Date(a.dueDate as string) - +new Date(b.dueDate as string));
+    const noDate = active.filter((t) => !t.dueDate);
+    const recentDone = visibleTasks
+      .filter((t) => t.status === 'COMPLETED')
+      .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+
+    return { today, upcoming, noDate, recentDone };
+  }, [visibleTasks]);
+
   const byStatus = (status: TaskStatus) => visibleTasks.filter((t) => t.status === status);
 
   async function handleDelete(id: string) {
@@ -288,6 +310,89 @@ export default function Home() {
     if (!confirm('¿Borrar registro de horas?')) return;
     await fetch(`/api/time-entries/${id}`, { method: 'DELETE' });
     await loadTasks();
+  }
+
+  if (personalMode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-black text-white">
+        <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-5">
+          <header className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-semibold">Personal Planner</h1>
+                <p className="text-sm text-slate-300">Rutinas, recordatorios y tareas del día a día</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={toggleTheme} className="btn-secondary">{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
+                <button onClick={logout} className="btn-secondary"><LogOut size={16} /> Salir</button>
+                <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+              <Metric label="Hoy" value={personalSections.today.length} />
+              <Metric label="Próximas" value={personalSections.upcoming.length} />
+              <Metric label="Sin fecha" value={personalSections.noDate.length} />
+              <Metric label="Completadas" value={personalSections.recentDone.length} />
+            </div>
+          </header>
+
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+            <label className="input-wrap"><Search size={16} /><input placeholder="Buscar por título o contenido..." value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+          </section>
+
+          <PersonalSection title="Hoy" tasks={personalSections.today} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
+          <PersonalSection title="Recordatorios próximos" tasks={personalSections.upcoming} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
+          <PersonalSection title="Pendientes sin fecha" tasks={personalSections.noDate} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
+          <PersonalSection title="Completadas recientes" tasks={personalSections.recentDone} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} onLogTime={(t) => setTimeTask(t)} />
+
+          {historicalCompleted.length > 0 && (
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
+              <h3 className="font-semibold">Histórico</h3>
+              <div className="grid md:grid-cols-3 gap-2">
+                <input className="input" placeholder="Buscar por título..." value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} />
+                <input className="input" type="date" value={historyCreatedDate} onChange={(e) => setHistoryCreatedDate(e.target.value)} />
+                <input className="input" type="date" value={historyArchivedDate} onChange={(e) => setHistoryArchivedDate(e.target.value)} />
+              </div>
+              <div className="space-y-2 max-h-[24rem] overflow-auto">
+                {filteredHistorical.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-slate-800 p-3 flex justify-between items-center gap-3">
+                    <div>
+                      <p className="font-medium">{t.title}</p>
+                      <p className="text-xs text-slate-400">Creada: {format(new Date(t.createdAt), 'dd/MM/yyyy')}</p>
+                      <p className="text-xs text-slate-400">Paso a histórico: {format(getArchiveDate(t), 'dd/MM/yyyy')}</p>
+                    </div>
+                    <button className="btn-secondary" onClick={() => recoverTask(t)}>Recuperar</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {showForm && (
+          <TaskFormModal
+            task={editing}
+            onClose={() => setShowForm(false)}
+            onSaved={async () => {
+              setShowForm(false);
+              setEditing(null);
+              await loadTasks();
+            }}
+          />
+        )}
+
+        {timeTask && (
+          <TimeEntryModal
+            task={timeTask}
+            onClose={() => setTimeTask(null)}
+            onSaved={async () => {
+              setTimeTask(null);
+              await loadTasks();
+            }}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -461,6 +566,51 @@ export default function Home() {
         />
       )}
     </div>
+  );
+}
+
+function PersonalSection({
+  title,
+  tasks,
+  onEdit,
+  onDelete,
+  onComplete,
+  onLogTime,
+}: {
+  title: string;
+  tasks: Task[];
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+  onComplete: (id: string) => void;
+  onLogTime: (task: Task) => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">{title}</h3>
+        <span className="text-xs text-slate-400">{tasks.length} tareas</span>
+      </div>
+      {tasks.length === 0 ? (
+        <p className="text-sm text-slate-400">Sin tareas en este apartado.</p>
+      ) : (
+        <div className="space-y-2">
+          {tasks.map((task) => (
+            <div key={task.id} className="rounded-xl border border-slate-800 p-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{task.title}</p>
+                {task.dueDate && <p className="text-xs text-slate-400">Recordatorio: {format(parseISO(task.dueDate), 'dd/MM/yyyy')}</p>}
+              </div>
+              <div className="flex gap-2">
+                {task.status !== 'COMPLETED' && <button className="btn-secondary" onClick={() => onComplete(task.id)}>Completar</button>}
+                <button className="btn-secondary" onClick={() => onLogTime(task)}>⏱</button>
+                <button className="btn-secondary" onClick={() => onEdit(task)}><Pencil size={14} /></button>
+                <button className="btn-secondary text-red-500" onClick={() => onDelete(task.id)}><Trash2 size={14} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
