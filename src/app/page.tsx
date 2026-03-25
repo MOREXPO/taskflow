@@ -109,7 +109,7 @@ export default function Home() {
       todo: tasks.filter((t) => t.status === 'PENDING').length,
       doing: tasks.filter((t) => ['IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'DOCUMENTING'].includes(t.status)).length,
       done: tasks.filter((t) => t.status === 'COMPLETED').length,
-      overdue: tasks.filter((t) => t.dueDate && isBefore(parseISO(t.dueDate), now) && t.status !== 'COMPLETED').length,
+      blocked: tasks.filter((t) => t.status === 'BLOCKED').length,
     };
   }, [tasks]);
 
@@ -290,7 +290,7 @@ export default function Home() {
             <Metric label="Pendientes" value={metrics.todo} />
             <Metric label="En curso" value={metrics.doing} />
             <Metric label="Completadas" value={metrics.done} />
-            <Metric label="Vencidas" value={metrics.overdue} danger />
+            <Metric label="Bloqueadas" value={metrics.blocked} danger />
           </div>
         </header>
 
