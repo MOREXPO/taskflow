@@ -21,6 +21,7 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 const priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+const ARCHIVE_MARKER = '__ARCHIVED__';
 
 const priorityLabel: Record<Priority, string> = {
   LOW: 'Baja',
@@ -166,7 +167,12 @@ export default function Home() {
 
   const historicalCompleted = useMemo(() => {
     const threshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return tasks.filter((t) => t.status === 'COMPLETED' && new Date(t.updatedAt).getTime() < threshold);
+    return tasks.filter((t) => {
+      if (t.status !== 'COMPLETED') return false;
+      const manualArchived = (t.internalNotes || '').includes(ARCHIVE_MARKER);
+      const autoArchived = new Date(t.updatedAt).getTime() < threshold;
+      return manualArchived || autoArchived;
+    });
   }, [tasks]);
 
   const visibleTasks = useMemo(() => {
@@ -203,6 +209,47 @@ export default function Home() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
+    });
+    await loadTasks();
+  }
+
+  async function archiveTask(task: Task) {
+    if (task.status !== 'COMPLETED') return;
+    const notes = task.internalNotes || '';
+    if (notes.includes(ARCHIVE_MARKER)) return;
+    const nextNotes = [notes.trim(), ARCHIVE_MARKER].filter(Boolean).join('\n');
+    await fetch(`/api/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        dueDate: task.dueDate,
+        status: task.status,
+        tags: task.tags,
+        requester: task.requester,
+        internalNotes: nextNotes,
+      }),
+    });
+    await loadTasks();
+  }
+
+  async function recoverTask(task: Task) {
+    const notes = (task.internalNotes || '').replace(ARCHIVE_MARKER, '').trim();
+    await fetch(`/api/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        dueDate: task.dueDate,
+        status: 'IN_PROGRESS',
+        tags: task.tags,
+        requester: task.requester,
+        internalNotes: notes || null,
+      }),
     });
     await loadTasks();
   }
@@ -314,7 +361,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-3 min-h-24">
                   {byStatus(status).map((task) => (
-                    <TaskCard key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onDragStart={() => setDragId(task.id)} />
+                    <TaskCard key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onDragStart={() => setDragId(task.id)} onArchive={() => archiveTask(task)} />
                   ))}
                 </div>
               </div>
@@ -322,7 +369,7 @@ export default function Home() {
           </div>
         ) : view === 'LIST' ? (
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-            {visibleTasks.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onMove={moveTask} />)}
+            {visibleTasks.map((task) => <TaskRow key={task.id} task={task} onEdit={() => { setEditing(task); setShowForm(true); }} onDelete={() => handleDelete(task.id)} onLogTime={() => setTimeTask(task)} onMove={moveTask} onArchive={() => archiveTask(task)} />)}
           </div>
         ) : view === 'CALENDAR' ? (
           <MonthlyCalendar
@@ -358,7 +405,7 @@ export default function Home() {
                       <p className="text-sm font-medium truncate">{t.title}</p>
                       <p className="text-xs text-zinc-500">Completada (última actualización): {format(new Date(t.updatedAt), 'dd/MM/yyyy')}</p>
                     </div>
-                    <button className="btn-secondary" onClick={() => moveTask(t.id, 'IN_PROGRESS')}>Recuperar</button>
+                    <button className="btn-secondary" onClick={() => recoverTask(t)}>Recuperar</button>
                   </div>
                 ))
               )}
@@ -402,7 +449,7 @@ function Metric({ label, value, danger = false, suffix = '' }: { label: string; 
   );
 }
 
-function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onDragStart: () => void }) {
+function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart, onArchive }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onDragStart: () => void; onArchive: () => void }) {
   const overdue = task.dueDate && isBefore(parseISO(task.dueDate), new Date()) && task.status !== 'COMPLETED';
   return (
     <div id={task.id} draggable onDragStart={onDragStart} className={clsx('task-card cursor-grab active:cursor-grabbing', overdue && 'ring-1 ring-red-400')}>
@@ -415,8 +462,11 @@ function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart }: { task: Ta
       <div className="mt-3 text-xs text-zinc-500 space-y-1">
         {task.dueDate && <p className={clsx(overdue && 'text-red-500 font-semibold')}>Límite: {format(parseISO(task.dueDate), 'dd/MM/yyyy')} {isToday(parseISO(task.dueDate)) && '· hoy'}</p>}
       </div>
-      <div className="mt-3 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex gap-2">
+      <div className="mt-3 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex gap-2 flex-wrap">
         <button className="btn-secondary" onClick={onLogTime}>⏱</button>
+        {task.status === 'COMPLETED' && !(task.internalNotes || '').includes(ARCHIVE_MARKER) && (
+          <button className="btn-secondary" onClick={onArchive}>Archivar</button>
+        )}
         <button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button>
         <button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button>
       </div>
@@ -424,7 +474,7 @@ function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart }: { task: Ta
   );
 }
 
-function TaskRow({ task, onEdit, onDelete, onLogTime, onMove }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onMove: (id: string, s: TaskStatus) => void }) {
+function TaskRow({ task, onEdit, onDelete, onLogTime, onMove, onArchive }: { task: Task; onEdit: () => void; onDelete: () => void; onLogTime: () => void; onMove: (id: string, s: TaskStatus) => void; onArchive: () => void }) {
   return (
     <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 grid md:grid-cols-6 gap-2 items-center">
       <div className="md:col-span-2"><p className="font-medium">{task.title}</p></div>
@@ -435,7 +485,7 @@ function TaskRow({ task, onEdit, onDelete, onLogTime, onMove }: { task: Task; on
           {statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
         </select>
       </div>
-      <div className="flex gap-2 justify-end"><button className="btn-secondary" onClick={onLogTime}>⏱</button><button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
+      <div className="flex gap-2 justify-end flex-wrap"><button className="btn-secondary" onClick={onLogTime}>⏱</button>{task.status === 'COMPLETED' && !(task.internalNotes || '').includes(ARCHIVE_MARKER) && (<button className="btn-secondary" onClick={onArchive}>Archivar</button>)}<button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
     </div>
   );
 }
