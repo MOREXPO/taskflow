@@ -486,10 +486,21 @@ export default function Home() {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-              <Metric label="Hoy" value={personalSections.today.length} />
-              <Metric label="Próximas" value={personalSections.upcoming.length} />
-              <Metric label="Sin fecha" value={personalSections.noDate.length} />
-              <Metric label="Completadas" value={personalSections.recentDone.length} />
+              {personalTab === 'TASKS' ? (
+                <>
+                  <Metric label="Hoy" value={personalSections.today.length} />
+                  <Metric label="Próximas" value={personalSections.upcoming.length} />
+                  <Metric label="Sin fecha" value={personalSections.noDate.length} />
+                  <Metric label="Completadas" value={personalSections.recentDone.length} />
+                </>
+              ) : (
+                <>
+                  <Metric label="Itinerarios" value={itineraries.length} />
+                  <Metric label="Destinos" value={itineraries.reduce((n, it) => n + (it.destinations?.length || 0), 0)} />
+                  <Metric label="Actividades" value={itineraries.reduce((n, it) => n + Object.values(it.dayActivities || {}).reduce((a, arr) => a + arr.length, 0), 0)} />
+                  <Metric label="Viaje activo" value={selectedItinerary ? 1 : 0} />
+                </>
+              )}
             </div>
           </header>
 
@@ -1188,6 +1199,17 @@ function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { perso
     internalNotes: task?.internalNotes || '',
   });
 
+  function normalizePersonalDate(raw: string) {
+    const t = raw.trim();
+    if (!t) return '';
+    const m = t.match(/^(\d{1,2})[\s/\-.](\d{1,2})[\s/\-.](\d{4})$/);
+    if (!m) return t;
+    const dd = m[1].padStart(2, '0');
+    const mm = m[2].padStart(2, '0');
+    const yyyy = m[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const method = task ? 'PATCH' : 'POST';
@@ -1197,6 +1219,7 @@ function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { perso
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
+        dueDate: personalMode ? normalizePersonalDate(form.dueDate) : form.dueDate,
         priority: personalMode ? 'MEDIUM' : form.priority,
         status: personalMode ? (task?.status ?? 'PENDING') : form.status,
         tags: personalMode ? [] : form.tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -1214,7 +1237,7 @@ function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { perso
         <textarea className="input min-h-20" placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         {personalMode ? (
           <div className="grid md:grid-cols-1 gap-2">
-            <input className="input" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+            <input className="input" placeholder="DD MM AAAA" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           </div>
         ) : (
           <>
