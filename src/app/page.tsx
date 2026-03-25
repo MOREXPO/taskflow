@@ -23,6 +23,26 @@ const statusLabels: Record<TaskStatus, string> = {
 const priorities: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 const ARCHIVE_MARKER = '__ARCHIVED__';
 
+function getArchiveDate(task: Task): Date {
+  const notes = task.internalNotes || '';
+  const line = notes.split('\n').find((l) => l.startsWith(`${ARCHIVE_MARKER}:`));
+  if (line) {
+    const raw = line.slice(`${ARCHIVE_MARKER}:`.length).trim();
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  const auto = new Date(new Date(task.updatedAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+  return auto;
+}
+
+function hasManualArchive(task: Task) {
+  return (task.internalNotes || '').includes(`${ARCHIVE_MARKER}:`);
+}
+
+function ymd(date: Date) {
+  return format(date, 'yyyy-MM-dd');
+}
+
 const priorityLabel: Record<Priority, string> = {
   LOW: 'Baja',
   MEDIUM: 'Media',
@@ -40,8 +60,8 @@ export default function Home() {
   const [dueFilter, setDueFilter] = useState('');
   const [view, setView] = useState<'KANBAN' | 'LIST' | 'CALENDAR' | 'HISTORY'>('KANBAN');
   const [historyQuery, setHistoryQuery] = useState('');
-  const [historyFrom, setHistoryFrom] = useState('');
-  const [historyTo, setHistoryTo] = useState('');
+  const [historyCreatedDate, setHistoryCreatedDate] = useState('');
+  const [historyArchivedDate, setHistoryArchivedDate] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate'>('priority');
   const [isDark, setIsDark] = useState(true);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -166,12 +186,11 @@ export default function Home() {
   }, [tasks, query, statusFilter, priorityFilter, tagFilter, dueFilter, sortBy]);
 
   const historicalCompleted = useMemo(() => {
-    const threshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
     return tasks.filter((t) => {
       if (t.status !== 'COMPLETED') return false;
-      const manualArchived = (t.internalNotes || '').includes(ARCHIVE_MARKER);
-      const autoArchived = new Date(t.updatedAt).getTime() < threshold;
-      return manualArchived || autoArchived;
+      if (hasManualArchive(t)) return true;
+      return getArchiveDate(t).getTime() <= now;
     });
   }, [tasks]);
 
@@ -184,17 +203,17 @@ export default function Home() {
     let result = [...historicalCompleted];
     if (historyQuery) {
       const q = historyQuery.toLowerCase();
-      result = result.filter((t) => [t.title, t.description ?? '', t.tags].join(' ').toLowerCase().includes(q));
+      result = result.filter((t) => t.title.toLowerCase().includes(q));
     }
-    if (historyFrom) result = result.filter((t) => new Date(t.updatedAt) >= new Date(historyFrom));
-    if (historyTo) {
-      const to = new Date(historyTo);
-      to.setHours(23, 59, 59, 999);
-      result = result.filter((t) => new Date(t.updatedAt) <= to);
+    if (historyCreatedDate) {
+      result = result.filter((t) => ymd(new Date(t.createdAt)) === historyCreatedDate);
     }
-    result.sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+    if (historyArchivedDate) {
+      result = result.filter((t) => ymd(getArchiveDate(t)) === historyArchivedDate);
+    }
+    result.sort((a, b) => +getArchiveDate(b) - +getArchiveDate(a));
     return result;
-  }, [historicalCompleted, historyQuery, historyFrom, historyTo]);
+  }, [historicalCompleted, historyQuery, historyCreatedDate, historyArchivedDate]);
 
   const byStatus = (status: TaskStatus) => visibleTasks.filter((t) => t.status === status);
 
@@ -216,8 +235,8 @@ export default function Home() {
   async function archiveTask(task: Task) {
     if (task.status !== 'COMPLETED') return;
     const notes = task.internalNotes || '';
-    if (notes.includes(ARCHIVE_MARKER)) return;
-    const nextNotes = [notes.trim(), ARCHIVE_MARKER].filter(Boolean).join('\n');
+    if (hasManualArchive(task)) return;
+    const nextNotes = [notes.trim(), `${ARCHIVE_MARKER}:${new Date().toISOString()}`].filter(Boolean).join('\n');
     await fetch(`/api/tasks/${task.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -236,7 +255,11 @@ export default function Home() {
   }
 
   async function recoverTask(task: Task) {
-    const notes = (task.internalNotes || '').replace(ARCHIVE_MARKER, '').trim();
+    const notes = (task.internalNotes || '')
+      .split('\n')
+      .filter((l) => !l.startsWith(ARCHIVE_MARKER))
+      .join('\n')
+      .trim();
     await fetch(`/api/tasks/${task.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -289,8 +312,8 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
             <Metric label="Pendientes" value={metrics.todo} />
             <Metric label="En curso" value={metrics.doing} />
+            <Metric label="Bloqueadas" value={metrics.blocked} />
             <Metric label="Completadas" value={metrics.done} />
-            <Metric label="Bloqueadas" value={metrics.blocked} danger />
           </div>
         </header>
 
@@ -390,9 +413,9 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-2">
-              <input className="input" placeholder="Buscar en histórico..." value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} />
-              <input className="input" type="date" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} />
-              <input className="input" type="date" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} />
+              <input className="input" placeholder="Buscar por título..." value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} />
+              <input className="input" type="date" title="Filtrar por fecha de creación" value={historyCreatedDate} onChange={(e) => setHistoryCreatedDate(e.target.value)} />
+              <input className="input" type="date" title="Filtrar por fecha de paso a histórico" value={historyArchivedDate} onChange={(e) => setHistoryArchivedDate(e.target.value)} />
             </div>
 
             <div className="space-y-2 max-h-[28rem] overflow-auto pr-1">
@@ -403,7 +426,8 @@ export default function Home() {
                   <div key={t.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium truncate">{t.title}</p>
-                      <p className="text-xs text-zinc-500">Completada (última actualización): {format(new Date(t.updatedAt), 'dd/MM/yyyy')}</p>
+                      <p className="text-xs text-zinc-500">Creada: {format(new Date(t.createdAt), 'dd/MM/yyyy')}</p>
+                      <p className="text-xs text-zinc-500">Paso a histórico: {format(getArchiveDate(t), 'dd/MM/yyyy')}</p>
                     </div>
                     <button className="btn-secondary" onClick={() => recoverTask(t)}>Recuperar</button>
                   </div>
@@ -464,7 +488,7 @@ function TaskCard({ task, onEdit, onDelete, onLogTime, onDragStart, onArchive }:
       </div>
       <div className="mt-3 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex gap-2 flex-wrap">
         <button className="btn-secondary" onClick={onLogTime}>⏱</button>
-        {task.status === 'COMPLETED' && !(task.internalNotes || '').includes(ARCHIVE_MARKER) && (
+        {task.status === 'COMPLETED' && !hasManualArchive(task) && (
           <button className="btn-secondary" onClick={onArchive}>Archivar</button>
         )}
         <button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button>
@@ -485,7 +509,7 @@ function TaskRow({ task, onEdit, onDelete, onLogTime, onMove, onArchive }: { tas
           {statuses.map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
         </select>
       </div>
-      <div className="flex gap-2 justify-end flex-wrap"><button className="btn-secondary" onClick={onLogTime}>⏱</button>{task.status === 'COMPLETED' && !(task.internalNotes || '').includes(ARCHIVE_MARKER) && (<button className="btn-secondary" onClick={onArchive}>Archivar</button>)}<button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
+      <div className="flex gap-2 justify-end flex-wrap"><button className="btn-secondary" onClick={onLogTime}>⏱</button>{task.status === 'COMPLETED' && !hasManualArchive(task) && (<button className="btn-secondary" onClick={onArchive}>Archivar</button>)}<button className="btn-secondary" onClick={onEdit}><Pencil size={14} /></button><button className="btn-secondary text-red-500" onClick={onDelete}><Trash2 size={14} /></button></div>
     </div>
   );
 }
