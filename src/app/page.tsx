@@ -71,6 +71,13 @@ export default function Home() {
   const [timeTask, setTimeTask] = useState<Task | null>(null);
   const [me, setMe] = useState<{ email: string; role: 'ADMIN' | 'USER' } | null>(null);
   const [personalMode, setPersonalMode] = useState(false);
+  const [personalTab, setPersonalTab] = useState<'TASKS' | 'ITINERARIES'>('TASKS');
+  const [itineraries, setItineraries] = useState<Array<{ id: string; title: string; from: string; to: string; notes: string; items: string[] }>>([]);
+  const [itTitle, setItTitle] = useState('');
+  const [itFrom, setItFrom] = useState('');
+  const [itTo, setItTo] = useState('');
+  const [itNotes, setItNotes] = useState('');
+  const [itItems, setItItems] = useState('');
 
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -111,9 +118,24 @@ export default function Home() {
     document.body.classList.toggle('dark', useDark);
 
     if (typeof window !== 'undefined') {
-      setPersonalMode(window.location.hostname === 'personal.iamoex.com');
+      const isPersonal = window.location.hostname === 'personal.iamoex.com';
+      setPersonalMode(isPersonal);
+      if (isPersonal) {
+        try {
+          const raw = localStorage.getItem('personal_itineraries');
+          const parsed = raw ? JSON.parse(raw) : [];
+          setItineraries(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setItineraries([]);
+        }
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (!personalMode) return;
+    localStorage.setItem('personal_itineraries', JSON.stringify(itineraries));
+  }, [personalMode, itineraries]);
 
   function toggleTheme() {
     const next = !isDark;
@@ -312,6 +334,30 @@ export default function Home() {
     await loadTasks();
   }
 
+  function createItinerary(e: React.FormEvent) {
+    e.preventDefault();
+    if (!itTitle.trim()) return;
+    const itinerary = {
+      id: crypto.randomUUID(),
+      title: itTitle.trim(),
+      from: itFrom,
+      to: itTo,
+      notes: itNotes.trim(),
+      items: itItems.split('\n').map((x) => x.trim()).filter(Boolean),
+    };
+    setItineraries((prev) => [itinerary, ...prev]);
+    setItTitle('');
+    setItFrom('');
+    setItTo('');
+    setItNotes('');
+    setItItems('');
+  }
+
+  function deleteItinerary(id: string) {
+    if (!confirm('¿Eliminar itinerario?')) return;
+    setItineraries((prev) => prev.filter((i) => i.id !== id));
+  }
+
   if (personalMode) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-black text-white">
@@ -343,32 +389,80 @@ export default function Home() {
             <label className="input-wrap"><Search size={16} /><input placeholder="Buscar por título o contenido..." value={query} onChange={(e) => setQuery(e.target.value)} /></label>
           </section>
 
-          <PersonalSection title="Hoy" tasks={personalSections.today} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
-          <PersonalSection title="Recordatorios próximos" tasks={personalSections.upcoming} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
-          <PersonalSection title="Pendientes sin fecha" tasks={personalSections.noDate} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
-          <PersonalSection title="Completadas recientes" tasks={personalSections.recentDone} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+          <div className="segmented w-fit">
+            <button className={clsx(personalTab === 'TASKS' && 'active')} onClick={() => setPersonalTab('TASKS')}>Tareas</button>
+            <button className={clsx(personalTab === 'ITINERARIES' && 'active')} onClick={() => setPersonalTab('ITINERARIES')}>Itinerarios</button>
+          </div>
 
-          {historicalCompleted.length > 0 && (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
-              <h3 className="font-semibold">Histórico</h3>
-              <div className="grid md:grid-cols-3 gap-2">
-                <input className="input" placeholder="Buscar por título..." value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} />
-                <input className="input" type="date" value={historyCreatedDate} onChange={(e) => setHistoryCreatedDate(e.target.value)} />
-                <input className="input" type="date" value={historyArchivedDate} onChange={(e) => setHistoryArchivedDate(e.target.value)} />
-              </div>
-              <div className="space-y-2 max-h-[24rem] overflow-auto">
-                {filteredHistorical.map((t) => (
-                  <div key={t.id} className="rounded-xl border border-slate-800 p-3 flex justify-between items-center gap-3">
-                    <div>
-                      <p className="font-medium">{t.title}</p>
-                      <p className="text-xs text-slate-400">Creada: {format(new Date(t.createdAt), 'dd/MM/yyyy')}</p>
-                      <p className="text-xs text-slate-400">Paso a histórico: {format(getArchiveDate(t), 'dd/MM/yyyy')}</p>
-                    </div>
-                    <button className="btn-secondary" onClick={() => recoverTask(t)}>Recuperar</button>
+          {personalTab === 'TASKS' ? (
+            <>
+              <PersonalSection title="Hoy" tasks={personalSections.today} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+              <PersonalSection title="Recordatorios próximos" tasks={personalSections.upcoming} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+              <PersonalSection title="Pendientes sin fecha" tasks={personalSections.noDate} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+              <PersonalSection title="Completadas recientes" tasks={personalSections.recentDone} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
+
+              {historicalCompleted.length > 0 && (
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
+                  <h3 className="font-semibold">Histórico</h3>
+                  <div className="grid md:grid-cols-3 gap-2">
+                    <input className="input" placeholder="Buscar por título..." value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} />
+                    <input className="input" type="date" value={historyCreatedDate} onChange={(e) => setHistoryCreatedDate(e.target.value)} />
+                    <input className="input" type="date" value={historyArchivedDate} onChange={(e) => setHistoryArchivedDate(e.target.value)} />
                   </div>
-                ))}
-              </div>
-            </section>
+                  <div className="space-y-2 max-h-[24rem] overflow-auto">
+                    {filteredHistorical.map((t) => (
+                      <div key={t.id} className="rounded-xl border border-slate-800 p-3 flex justify-between items-center gap-3">
+                        <div>
+                          <p className="font-medium">{t.title}</p>
+                          <p className="text-xs text-slate-400">Creada: {format(new Date(t.createdAt), 'dd/MM/yyyy')}</p>
+                          <p className="text-xs text-slate-400">Paso a histórico: {format(getArchiveDate(t), 'dd/MM/yyyy')}</p>
+                        </div>
+                        <button className="btn-secondary" onClick={() => recoverTask(t)}>Recuperar</button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          ) : (
+            <>
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
+                <h3 className="font-semibold">Nuevo itinerario</h3>
+                <form onSubmit={createItinerary} className="grid md:grid-cols-2 gap-2">
+                  <input className="input" placeholder="Título del viaje" value={itTitle} onChange={(e) => setItTitle(e.target.value)} required />
+                  <input className="input" placeholder="Destino principal" value={itNotes} onChange={(e) => setItNotes(e.target.value)} />
+                  <input className="input" type="date" value={itFrom} onChange={(e) => setItFrom(e.target.value)} />
+                  <input className="input" type="date" value={itTo} onChange={(e) => setItTo(e.target.value)} />
+                  <textarea className="input md:col-span-2 min-h-24" placeholder="Plan diario (una línea por punto: vuelos, hotel, visitas, reuniones...)" value={itItems} onChange={(e) => setItItems(e.target.value)} />
+                  <button className="btn-primary md:col-span-2">Guardar itinerario</button>
+                </form>
+              </section>
+
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
+                <h3 className="font-semibold">Itinerarios guardados</h3>
+                {itineraries.length === 0 ? (
+                  <p className="text-sm text-slate-400">No hay itinerarios todavía.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {itineraries.map((it) => (
+                      <div key={it.id} className="rounded-xl border border-slate-800 p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium">{it.title}</p>
+                          <button className="btn-secondary text-red-400" onClick={() => deleteItinerary(it.id)}>Eliminar</button>
+                        </div>
+                        <p className="text-xs text-slate-400">{it.from || '-'} → {it.to || '-'}</p>
+                        {it.notes && <p className="text-sm text-slate-300">{it.notes}</p>}
+                        {it.items.length > 0 && (
+                          <ul className="list-disc pl-5 text-sm text-slate-200 space-y-1">
+                            {it.items.map((line, idx) => <li key={idx}>{line}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
           )}
         </div>
 
