@@ -265,16 +265,37 @@ export default function Home() {
     [itineraries, selectedItineraryId]
   );
 
+  function normalizeDueDateForCompare(raw?: string | null) {
+    if (!raw) return null;
+    const t = raw.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+    const m = t.match(/^(\d{1,2})[\s/\-.](\d{1,2})[\s/\-.](\d{4})$/);
+    if (m) {
+      const dd = m[1].padStart(2, '0');
+      const mm = m[2].padStart(2, '0');
+      const yyyy = m[3];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return null;
+  }
+
   const personalSections = useMemo(() => {
     const now = new Date();
     const todayYmd = format(now, 'yyyy-MM-dd');
     const active = visibleTasks.filter((t) => t.status !== 'COMPLETED');
 
-    const today = active.filter((t) => (t.dueDate || '').slice(0, 10) === todayYmd);
+    const today = active.filter((t) => normalizeDueDateForCompare(t.dueDate) === todayYmd);
     const upcoming = active
-      .filter((t) => t.dueDate && (t.dueDate || '').slice(0, 10) > todayYmd)
-      .sort((a, b) => +new Date(a.dueDate as string) - +new Date(b.dueDate as string));
-    const noDate = active.filter((t) => !t.dueDate);
+      .filter((t) => {
+        const d = normalizeDueDateForCompare(t.dueDate);
+        return !!d && d > todayYmd;
+      })
+      .sort((a, b) => {
+        const da = normalizeDueDateForCompare(a.dueDate) || '9999-12-31';
+        const db = normalizeDueDateForCompare(b.dueDate) || '9999-12-31';
+        return da.localeCompare(db);
+      });
+    const noDate = active.filter((t) => !normalizeDueDateForCompare(t.dueDate));
     const recentDone = visibleTasks
       .filter((t) => t.status === 'COMPLETED')
       .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
@@ -515,6 +536,9 @@ export default function Home() {
 
           {personalTab === 'TASKS' ? (
             <>
+              <div className="flex justify-end">
+                <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Nueva tarea</button>
+              </div>
               <PersonalSection title="Hoy" tasks={personalSections.today} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
               <PersonalSection title="Recordatorios próximos" tasks={personalSections.upcoming} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
               <PersonalSection title="Pendientes sin fecha" tasks={personalSections.noDate} onEdit={(t) => { setEditing(t); setShowForm(true); }} onDelete={handleDelete} onComplete={(id) => moveTask(id, 'COMPLETED')} />
