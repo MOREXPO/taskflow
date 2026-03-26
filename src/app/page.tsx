@@ -268,7 +268,11 @@ export default function Home() {
   function normalizeDueDateForCompare(raw?: string | null) {
     if (!raw) return null;
     const t = raw.trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}/.test(t)) {
+      const d = new Date(t);
+      if (!Number.isNaN(d.getTime())) return format(d, 'yyyy-MM-dd');
+      return t.slice(0, 10);
+    }
     const m = t.match(/^(\d{1,2})[\s/\-.](\d{1,2})[\s/\-.](\d{4})$/);
     if (m) {
       const dd = m[1].padStart(2, '0');
@@ -276,6 +280,8 @@ export default function Home() {
       const yyyy = m[3];
       return `${yyyy}-${mm}-${dd}`;
     }
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) return format(d, 'yyyy-MM-dd');
     return null;
   }
 
@@ -752,6 +758,7 @@ export default function Home() {
               <option value="priority">Ordenar por prioridad</option>
               <option value="dueDate">Ordenar por fecha límite</option>
             </select>
+            <button className="btn-primary" onClick={() => { setEditing(null); setShowForm(true); }}><Plus size={16} /> Nueva tarea</button>
             <div className="segmented">
               <button className={clsx(view === 'KANBAN' && 'active')} onClick={() => setView('KANBAN')}>Kanban</button>
               <button className={clsx(view === 'LIST' && 'active')} onClick={() => setView('LIST')}>Lista</button>
@@ -1217,7 +1224,7 @@ function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { perso
     title: task?.title || '',
     description: task?.description || '',
     priority: task?.priority || 'MEDIUM',
-    dueDate: task?.dueDate?.slice(0, 10) || '',
+    dueDate: task?.dueDate ? (personalMode ? task.dueDate.slice(0, 16) : task.dueDate.slice(0, 10)) : '',
     status: task?.status || 'PENDING',
     tags: task?.tags || '',
     internalNotes: task?.internalNotes || '',
@@ -1226,6 +1233,7 @@ function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { perso
   function normalizePersonalDate(raw: string) {
     const t = raw.trim();
     if (!t) return '';
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) return t;
     const m = t.match(/^(\d{1,2})[\s/\-.](\d{1,2})[\s/\-.](\d{4})$/);
     if (!m) return t;
     const dd = m[1].padStart(2, '0');
@@ -1261,7 +1269,7 @@ function TaskFormModal({ personalMode = false, task, onClose, onSaved }: { perso
         <textarea className="input min-h-20" placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         {personalMode ? (
           <div className="grid md:grid-cols-1 gap-2">
-            <input className="input" placeholder="DD MM AAAA" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+            <input className="input" type="datetime-local" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           </div>
         ) : (
           <>
