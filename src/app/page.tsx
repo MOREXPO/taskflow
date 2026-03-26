@@ -125,7 +125,7 @@ export default function Home() {
     document.body.classList.toggle('dark', useDark);
 
     if (typeof window !== 'undefined') {
-      const isPersonal = window.location.hostname === 'personal.iamoex.com';
+      const isPersonal = false;
       setPersonalMode(isPersonal);
       if (isPersonal) {
         try {
